@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
-import type { DevFlowStatus, DevFlowSetupResult } from '../shared/types'
+import type { DevFlowStatus, DevFlowSetupResult, Requirement, RequirementsStatus } from '../shared/types'
 
 // Type definitions for the exposed API
 export interface ElectronAPI {
@@ -50,6 +50,10 @@ export interface ElectronAPI {
   // DevFlow
   checkDevFlow: (projectPath: string) => Promise<DevFlowStatus>
   setupDevFlow: (projectPath: string) => Promise<DevFlowSetupResult>
+
+  // Requirements
+  checkRequirements: () => Promise<RequirementsStatus>
+  recheckRequirement: (requirementId: string) => Promise<Requirement | null>
 
   // Project/Dialog
   selectDirectory: () => Promise<string | null>
@@ -189,6 +193,10 @@ const api: ElectronAPI = {
   // DevFlow
   checkDevFlow: (projectPath) => ipcRenderer.invoke('devflow:check', projectPath),
   setupDevFlow: (projectPath) => ipcRenderer.invoke('devflow:setup', projectPath),
+
+  // Requirements
+  checkRequirements: () => ipcRenderer.invoke('requirements:check'),
+  recheckRequirement: (requirementId) => ipcRenderer.invoke('requirements:recheck', requirementId),
 
   // Project/Dialog
   selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),

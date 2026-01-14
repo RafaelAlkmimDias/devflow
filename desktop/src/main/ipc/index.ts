@@ -7,6 +7,7 @@ import { registerSearchHandlers } from './search'
 import { registerSpecsHandlers } from './specs'
 import { registerAutopilotHandlers } from './autopilot'
 import { registerDevFlowHandlers } from './devflow'
+import { registerRequirementsHandlers } from './requirements'
 
 const store = new Store<{ recentProjects: string[] }>({
   name: 'projects',
@@ -24,6 +25,7 @@ export function registerAllHandlers(getMainWindow: () => BrowserWindow | null): 
   registerSpecsHandlers()
   registerAutopilotHandlers()
   registerDevFlowHandlers()
+  registerRequirementsHandlers()
 
   // Dialog handlers
   ipcMain.handle('dialog:selectDirectory', async () => {

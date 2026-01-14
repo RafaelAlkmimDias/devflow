@@ -21,6 +21,7 @@ import {
 interface FileTreeProps {
   node: FileNode;
   level: number;
+  treeVersion: number;
   focusedNodeId?: string | null;
   onFocusNode?: (id: string) => void;
   isFocused?: (id: string) => boolean;
@@ -83,7 +84,7 @@ function getIconColor(node: FileNode): string {
   }
 }
 
-function FileTreeComponent({ node, level, focusedNodeId, onFocusNode, isFocused }: FileTreeProps) {
+function FileTreeComponent({ node, level, treeVersion, focusedNodeId, onFocusNode, isFocused }: FileTreeProps) {
   const expandedFolders = useFileStore(selectExpandedFolders);
   const toggleFolder = useFileStore(selectToggleFolder);
   const openFile = useFileStore(selectOpenFile);
@@ -124,6 +125,7 @@ function FileTreeComponent({ node, level, focusedNodeId, onFocusNode, isFocused 
             key={child.path}
             node={child}
             level={1}
+            treeVersion={treeVersion}
             focusedNodeId={focusedNodeId}
             onFocusNode={onFocusNode}
             isFocused={isFocused}
@@ -140,9 +142,7 @@ function FileTreeComponent({ node, level, focusedNodeId, onFocusNode, isFocused 
           ref={itemRef}
           className={cn(
             'flex items-center gap-1 py-1 px-2 cursor-pointer transition-colors',
-            isActive
-              ? 'bg-purple-500/20 text-white'
-              : 'text-gray-400 hover:text-white hover:bg-white/5',
+            'text-gray-400 hover:text-white hover:bg-white/5',
             isNodeFocused && 'ring-1 ring-inset ring-purple-500/50 bg-purple-500/10'
           )}
           style={{ paddingLeft: (level * 12 + 8) + 'px' }}
@@ -175,7 +175,10 @@ function FileTreeComponent({ node, level, focusedNodeId, onFocusNode, isFocused 
           )}
 
           {/* Name */}
-          <span className="text-sm truncate">{node.name}</span>
+          <span className={cn(
+            'text-sm truncate',
+            isActive && 'font-semibold text-sky-400'
+          )}>{node.name}</span>
         </div>
       </FileContextMenu>
 
@@ -187,6 +190,7 @@ function FileTreeComponent({ node, level, focusedNodeId, onFocusNode, isFocused 
               key={child.path}
               node={child}
               level={level + 1}
+              treeVersion={treeVersion}
               focusedNodeId={focusedNodeId}
               onFocusNode={onFocusNode}
               isFocused={isFocused}
@@ -198,17 +202,16 @@ function FileTreeComponent({ node, level, focusedNodeId, onFocusNode, isFocused 
   );
 }
 
-// Memoized FileTree
+// Memoized FileTree with treeVersion for efficient re-renders
 export const FileTree = memo(FileTreeComponent, (prevProps, nextProps) => {
   return (
     prevProps.node.path === nextProps.node.path &&
     prevProps.node.name === nextProps.node.name &&
     prevProps.node.type === nextProps.node.type &&
     prevProps.level === nextProps.level &&
+    prevProps.treeVersion === nextProps.treeVersion &&
     prevProps.focusedNodeId === nextProps.focusedNodeId &&
     prevProps.onFocusNode === nextProps.onFocusNode &&
-    prevProps.isFocused === nextProps.isFocused &&
-    JSON.stringify(prevProps.node.children?.map(c => c.path)) ===
-    JSON.stringify(nextProps.node.children?.map(c => c.path))
+    prevProps.isFocused === nextProps.isFocused
   );
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { api, DevFlowStatus } from './api';
+import { api, DevFlowStatus, RequirementsStatus } from './api';
 import { useProjectStore } from '@/lib/stores/projectStore';
 import { useFileStore } from '@/lib/stores/fileStore';
 import { useUIStore } from '@/lib/stores/uiStore';
@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { GitPanel } from '@/components/git';
-import { QuickOpen, GlobalSearch, CommandPalette, DevFlowSetupModal } from '@/components/modals';
+import { QuickOpen, GlobalSearch, CommandPalette, DevFlowSetupModal, RequirementsModal } from '@/components/modals';
 import { SettingsPanel } from '@/components/settings';
 
 // Project Selector Component
@@ -309,16 +309,63 @@ function App() {
   const [recentProjects, setRecentProjects] = useState<string[]>([]);
   const [version, setVersion] = useState<string>('');
 
+  // Requirements check state
+  const [isCheckingRequirements, setIsCheckingRequirements] = useState(true);
+  const [requirementsStatus, setRequirementsStatus] = useState<RequirementsStatus | null>(null);
+  const [showRequirementsModal, setShowRequirementsModal] = useState(false);
+
   // DevFlow setup modal state
   const [showDevFlowSetup, setShowDevFlowSetup] = useState(false);
   const [devFlowStatus, setDevFlowStatus] = useState<DevFlowStatus | null>(null);
   const [pendingProjectPath, setPendingProjectPath] = useState<string | null>(null);
 
+  // Check system requirements on app startup
   useEffect(() => {
-    // Load initial data
-    api.getVersion().then(setVersion);
-    api.getRecentProjects().then(setRecentProjects);
+    const checkRequirements = async () => {
+      try {
+        const status = await api.checkRequirements();
+        setRequirementsStatus(status);
+
+        if (!status.allRequiredMet) {
+          // Show blocking modal if requirements not met
+          setShowRequirementsModal(true);
+        }
+      } catch (error) {
+        console.error('Failed to check requirements:', error);
+        // If check fails, allow user to continue but log error
+      } finally {
+        setIsCheckingRequirements(false);
+      }
+    };
+
+    checkRequirements();
   }, []);
+
+  useEffect(() => {
+    // Load initial data (only after requirements check passes)
+    if (!isCheckingRequirements && (!requirementsStatus || requirementsStatus.allRequiredMet || !showRequirementsModal)) {
+      api.getVersion().then(setVersion);
+      api.getRecentProjects().then(setRecentProjects);
+    }
+  }, [isCheckingRequirements, requirementsStatus, showRequirementsModal]);
+
+  const handleRequirementsRecheck = async () => {
+    try {
+      const status = await api.checkRequirements();
+      setRequirementsStatus(status);
+
+      if (status.allRequiredMet) {
+        // All requirements met, can close modal
+        setShowRequirementsModal(false);
+      }
+    } catch (error) {
+      console.error('Failed to recheck requirements:', error);
+    }
+  };
+
+  const handleRequirementsMet = () => {
+    setShowRequirementsModal(false);
+  };
 
   const handleSelectProject = async (path: string) => {
     // Check DevFlow status first
@@ -365,6 +412,18 @@ function App() {
     setDevFlowStatus(null);
   };
 
+  // Show loading screen while checking requirements
+  if (isCheckingRequirements) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col items-center justify-center">
+        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center mb-4 animate-pulse">
+          <Zap className="w-7 h-7 text-white" />
+        </div>
+        <p className="text-gray-400 text-sm">Checking system requirements...</p>
+      </div>
+    );
+  }
+
   return (
     <>
       <Toaster
@@ -401,6 +460,16 @@ function App() {
           status={devFlowStatus}
           onClose={handleDevFlowSetupSkip}
           onSetupComplete={handleDevFlowSetupComplete}
+        />
+      )}
+
+      {/* Requirements Modal (blocking) */}
+      {requirementsStatus && (
+        <RequirementsModal
+          isOpen={showRequirementsModal}
+          status={requirementsStatus}
+          onRequirementsMet={handleRequirementsMet}
+          onRecheck={handleRequirementsRecheck}
         />
       )}
     </>

@@ -10,6 +10,7 @@ const MAX_HISTORY_SIZE = 50;
 interface FileState {
   // State
   tree: FileNode | null;
+  treeVersion: number;
   openFiles: OpenFile[];
   activeFile: string | null;
   expandedFolders: Set<string>;
@@ -69,6 +70,7 @@ export const useFileStore = create<FileState>()(
   persist(
     (set, get) => ({
       tree: null,
+      treeVersion: 0,
       openFiles: [],
       activeFile: null,
       expandedFolders: new Set(),
@@ -95,7 +97,7 @@ export const useFileStore = create<FileState>()(
             type: 'directory',
             children: convertTree(treeData),
           };
-          set({ tree: root, isLoading: false });
+          set((state) => ({ tree: root, treeVersion: state.treeVersion + 1, isLoading: false }));
         } catch (error) {
           console.error('Failed to load tree:', error);
           set({ isLoading: false });

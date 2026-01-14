@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -24,12 +24,13 @@ interface FileContextMenuProps {
 }
 
 export function FileContextMenu({ node, children }: FileContextMenuProps) {
-  const { deleteFile, renameFile, createFile, loadTree } = useFileStore();
+  const { deleteFile, renameFile, createFile, loadTree, expandedFolders, setExpandedFolders } = useFileStore();
   const { currentProject } = useProjectStore();
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(node.name);
   const [isCreating, setIsCreating] = useState<'file' | 'folder' | null>(null);
   const [createName, setCreateName] = useState('');
+  const isCreatingRef = useRef(false);
 
   const handleCopyPath = useCallback(() => {
     navigator.clipboard.writeText(node.path);
@@ -59,16 +60,27 @@ export function FileContextMenu({ node, children }: FileContextMenuProps) {
   const handleCreate = useCallback(async (type: 'file' | 'folder') => {
     if (!createName) return;
 
+    isCreatingRef.current = true;
+
     const basePath = node.type === 'directory' ? node.path : node.path.substring(0, node.path.lastIndexOf('/'));
     const newPath = basePath + '/' + createName;
 
-    await createFile(newPath, type === 'folder' ? 'directory' : 'file', type === 'file' ? '' : undefined);
-    if (currentProject) {
-      await loadTree(currentProject.path);
+    try {
+      await createFile(newPath, type === 'folder' ? 'directory' : 'file', type === 'file' ? '' : undefined);
+      if (currentProject) {
+        await loadTree(currentProject.path);
+      }
+      // Force update expandedFolders to trigger re-render of the tree
+      // Creating a new Set ensures React detects the change
+      const newExpandedFolders = new Set(expandedFolders);
+      newExpandedFolders.add(basePath);
+      setExpandedFolders(newExpandedFolders);
+    } finally {
+      isCreatingRef.current = false;
+      setIsCreating(null);
+      setCreateName('');
     }
-    setIsCreating(null);
-    setCreateName('');
-  }, [createName, node.type, node.path, createFile, loadTree, currentProject]);
+  }, [createName, node.type, node.path, createFile, loadTree, currentProject, expandedFolders, setExpandedFolders]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent, action: () => void) => {
     if (e.key === 'Enter') {
@@ -108,7 +120,13 @@ export function FileContextMenu({ node, children }: FileContextMenuProps) {
           type="text"
           value={createName}
           onChange={(e) => setCreateName(e.target.value)}
-          onBlur={() => { setIsCreating(null); setCreateName(''); }}
+          onBlur={() => {
+            // Only reset if not in the middle of creating
+            if (!isCreatingRef.current) {
+              setIsCreating(null);
+              setCreateName('');
+            }
+          }}
           onKeyDown={(e) => handleKeyDown(e, () => handleCreate(isCreating))}
           placeholder={isCreating === 'file' ? 'filename.ext' : 'folder name'}
           autoFocus

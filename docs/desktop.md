@@ -285,6 +285,7 @@ selectProjectDialog()
 ```typescript
 interface FileState {
   tree: FileTreeNode | null
+  treeVersion: number          // Incrementa a cada loadTree() para invalidar memo
   openFiles: OpenFile[]
   activeFile: string | null
   expandedFolders: Set<string>
@@ -294,7 +295,7 @@ interface FileState {
 }
 
 // Actions
-loadTree(projectPath: string)
+loadTree(projectPath: string)  // Incrementa treeVersion automaticamente
 openFile(path: string)
 saveFile(path: string)
 createFile(parentPath: string, name: string)
@@ -304,6 +305,9 @@ navigateBack() / navigateForward()
 togglePinned(path: string)
 reopenClosedTab()
 ```
+
+> **Nota**: O `treeVersion` é usado pelo `FileTree` memo para invalidação eficiente O(1).
+> Quando arquivos são criados/deletados, o `loadTree()` incrementa a versão e força re-render.
 
 ### uiStore
 
@@ -378,9 +382,17 @@ interface SettingsState {
 
 | Componente | Descrição |
 |------------|-----------|
-| `FileExplorer` | Navegador de arquivos |
-| `FileTree` | Árvore de pastas/arquivos |
-| `FileContextMenu` | Menu de contexto |
+| `FileExplorer` | Navegador de arquivos com header e ações |
+| `FileTree` | Árvore de pastas/arquivos com memo otimizado |
+| `FileContextMenu` | Menu de contexto (criar, renomear, deletar) |
+
+**Comportamentos do FileExplorer:**
+- Botões de criar arquivo/pasta no header respeitam seleção atual
+  - Pasta selecionada → cria dentro dela
+  - Arquivo selecionado → cria no diretório pai
+  - Nada selecionado → cria na raiz do projeto
+- Clique em área vazia desseleciona item atual
+- Arquivo ativo exibido com nome em **negrito azul claro** (`text-sky-400`)
 
 ### Terminal
 

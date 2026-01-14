@@ -114,6 +114,28 @@ export interface DevFlowSetupResult {
   error?: string
 }
 
+// System Requirements types
+export interface Requirement {
+  id: string
+  name: string
+  description: string
+  required: boolean
+  status: 'checking' | 'installed' | 'not_installed' | 'error'
+  version?: string
+  installInstructions: {
+    darwin: string
+    linux: string
+    win32: string
+  }
+  helpUrl?: string
+}
+
+export interface RequirementsStatus {
+  allRequiredMet: boolean
+  platform: NodeJS.Platform
+  requirements: Requirement[]
+}
+
 // IPC Channel names
 export const IPC_CHANNELS = {
   // Files
@@ -160,6 +182,11 @@ export const IPC_CHANNELS = {
   // DevFlow
   DEVFLOW_CHECK: 'devflow:check',
   DEVFLOW_SETUP: 'devflow:setup',
+
+  // Requirements
+  REQUIREMENTS_CHECK: 'requirements:check',
+  REQUIREMENTS_RECHECK: 'requirements:recheck',
+  REQUIREMENTS_OPEN_HELP: 'requirements:openHelp',
 
   // Dialog/Project
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',

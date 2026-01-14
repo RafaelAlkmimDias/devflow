@@ -1,12 +1,13 @@
-import { useMemo, useCallback, useRef, KeyboardEvent } from 'react';
+import { useMemo, useCallback, useRef, KeyboardEvent, useState } from 'react';
 import { useFileStore } from '@/lib/stores/fileStore';
 import { useProjectStore } from '@/lib/stores/projectStore';
 import { FileTree } from './FileTree';
 import { SkeletonTree } from '@/components/ui/Skeleton';
-import { RefreshCw, Plus, FolderPlus, Search } from 'lucide-react';
+import { RefreshCw, Plus, FolderPlus, Search, FileText, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileNode } from '@/lib/types';
 import { useTreeNavigation, TreeNode } from '@/hooks/useTreeNavigation';
+import { toast } from 'sonner';
 
 interface FlattenedNode extends TreeNode {
   node: FileNode;
@@ -50,9 +51,14 @@ function flattenTree(
 }
 
 export function FileExplorer() {
-  const { tree, isLoading, loadTree, expandedFolders, toggleFolder, openFile, activeFile } = useFileStore();
+  const { tree, treeVersion, isLoading, loadTree, expandedFolders, toggleFolder, openFile, createFile } = useFileStore();
   const { currentProject } = useProjectStore();
   const treeContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // State for creating new file/folder
+  const [isCreating, setIsCreating] = useState<'file' | 'folder' | null>(null);
+  const [newItemName, setNewItemName] = useState('');
 
   // Flatten tree for keyboard navigation
   const visibleNodes = useMemo(() => {
@@ -103,12 +109,94 @@ export function FileExplorer() {
     }
   };
 
+  // Start creating a new file or folder
+  const handleStartCreate = (type: 'file' | 'folder') => {
+    setIsCreating(type);
+    setNewItemName('');
+    // Focus input after state update
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  // Cancel creation
+  const handleCancelCreate = () => {
+    setIsCreating(null);
+    setNewItemName('');
+  };
+
+  // Get the target directory for creating new files/folders
+  const getTargetDirectory = useCallback(() => {
+    if (!currentProject) return null;
+
+    // If no node is focused, use project root
+    if (!focusedNodeId) return currentProject.path;
+
+    // Find the focused node
+    const focusedNode = visibleNodes.find(n => n.id === focusedNodeId);
+    if (!focusedNode) return currentProject.path;
+
+    // If focused node is a directory, create inside it
+    if (focusedNode.isDirectory) {
+      return focusedNodeId;
+    }
+
+    // If focused node is a file, create in its parent directory
+    return focusedNodeId.substring(0, focusedNodeId.lastIndexOf('/'));
+  }, [currentProject, focusedNodeId, visibleNodes]);
+
+  // Confirm creation
+  const handleConfirmCreate = async () => {
+    if (!newItemName.trim() || !currentProject) {
+      handleCancelCreate();
+      return;
+    }
+
+    try {
+      const targetDir = getTargetDirectory();
+      if (!targetDir) {
+        handleCancelCreate();
+        return;
+      }
+
+      const newPath = `${targetDir}/${newItemName.trim()}`;
+      await createFile(newPath, isCreating === 'folder' ? 'directory' : 'file', isCreating === 'file' ? '' : undefined);
+      await loadTree(currentProject.path);
+      toast.success(`${isCreating === 'file' ? 'File' : 'Folder'} created successfully`);
+      handleCancelCreate();
+    } catch (error) {
+      toast.error(`Failed to create ${isCreating}`);
+      console.error('Create error:', error);
+    }
+  };
+
+  // Handle keyboard events on create input
+  const handleCreateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleConfirmCreate();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelCreate();
+    }
+  };
+
   // Handle keyboard navigation on container
   const handleContainerKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
     // Only handle if not in search input
     if ((e.target as HTMLElement).tagName === 'INPUT') return;
     handleKeyDown(e);
   }, [handleKeyDown]);
+
+  // Handle click on empty area to deselect
+  const handleContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Check if click was on a tree item (has role="treeitem" or is inside one)
+    const target = e.target as HTMLElement;
+    const isTreeItem = target.closest('[role="treeitem"]');
+
+    // Deselect if clicking outside any tree item
+    if (!isTreeItem) {
+      setFocusedNodeId(null);
+    }
+  }, [setFocusedNodeId]);
 
   return (
     <div className="h-full flex flex-col bg-[#0a0a0f] text-white">
@@ -127,14 +215,22 @@ export function FileExplorer() {
             <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} aria-hidden="true" />
           </button>
           <button
-            className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            onClick={() => handleStartCreate('file')}
+            className={cn(
+              "p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors",
+              isCreating === 'file' && "bg-purple-500/20 text-purple-400"
+            )}
             title="New File"
             aria-label="Create new file"
           >
             <Plus className="w-4 h-4" aria-hidden="true" />
           </button>
           <button
-            className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            onClick={() => handleStartCreate('folder')}
+            className={cn(
+              "p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors",
+              isCreating === 'folder' && "bg-purple-500/20 text-purple-400"
+            )}
             title="New Folder"
             aria-label="Create new folder"
           >
@@ -142,6 +238,47 @@ export function FileExplorer() {
           </button>
         </div>
       </div>
+
+      {/* Create Input */}
+      {isCreating && (
+        <div className="px-3 py-2 border-b border-white/10 bg-purple-500/5">
+          <div className="flex items-center gap-2">
+            <span className="text-purple-400">
+              {isCreating === 'file' ? (
+                <FileText className="w-4 h-4" />
+              ) : (
+                <FolderPlus className="w-4 h-4" />
+              )}
+            </span>
+            <input
+              ref={inputRef}
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyDown={handleCreateKeyDown}
+              onBlur={() => {
+                // Delay to allow button click
+                setTimeout(() => {
+                  if (!newItemName.trim()) handleCancelCreate();
+                }, 150);
+              }}
+              placeholder={isCreating === 'file' ? 'filename.ext' : 'folder name'}
+              className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none border-b border-purple-500/50 py-1"
+              autoFocus
+            />
+            <button
+              onClick={handleCancelCreate}
+              className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white"
+              title="Cancel"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-[10px] text-gray-500 mt-1">
+            Press Enter to create, Escape to cancel
+          </p>
+        </div>
+      )}
 
       {/* Search */}
       <div className="px-3 py-2 border-b border-white/10">
@@ -164,6 +301,7 @@ export function FileExplorer() {
         aria-label="File explorer"
         tabIndex={0}
         onKeyDown={handleContainerKeyDown}
+        onClick={handleContainerClick}
       >
         {isLoading && !tree ? (
           <div className="px-2">
@@ -173,6 +311,7 @@ export function FileExplorer() {
           <FileTree
             node={tree}
             level={0}
+            treeVersion={treeVersion}
             focusedNodeId={focusedNodeId}
             onFocusNode={setFocusedNodeId}
             isFocused={isFocused}

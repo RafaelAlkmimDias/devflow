@@ -7,6 +7,57 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed - File Explorer Tree Update
+
+- **Tree Version System**: Corrigido problema onde a árvore não atualizava ao criar arquivos
+  - Adicionado `treeVersion` no `fileStore` que incrementa a cada `loadTree()`
+  - Memo do `FileTree` agora usa `treeVersion` para invalidação eficiente (O(1))
+  - Substituído `JSON.stringify` recursivo por comparação simples de número
+
+### Added - File Explorer Improvements
+
+- **Criar arquivo/pasta na pasta selecionada**: Botões do header agora respeitam seleção
+  - Se uma pasta está selecionada, cria dentro dela
+  - Se um arquivo está selecionado, cria no diretório pai
+  - Se nada está selecionado, cria na raiz do projeto
+
+- **Desselecionar ao clicar em área vazia**: Clique fora de itens desseleciona
+  - Permite criar arquivos na raiz mesmo após selecionar uma pasta
+
+### Changed - File Explorer UI
+
+- **Estilo do arquivo ativo**: Removido fundo roxo, agora usa texto estilizado
+  - Nome em **negrito** (`font-semibold`)
+  - Cor **azul claro** (`text-sky-400`)
+
+### Added - System Requirements Check
+
+- **Requirements Modal**: Verificação de dependências ao iniciar o app
+  - Verifica Claude CLI, Git e Node.js automaticamente
+  - Modal bloqueante impede uso sem dependências obrigatórias
+  - Instruções de instalação específicas por SO (macOS, Linux, Windows)
+  - Botão para copiar comandos de instalação
+  - Links para documentação oficial
+  - Botão "Check Again" para reverificar após instalação
+
+- **IPC Module** (`requirements.ts`): Handlers para verificação de sistema
+  - `requirements:check` - Verifica todos os requisitos
+  - `requirements:recheck` - Reverifica requisito específico
+  - Detecta versão das ferramentas instaladas
+
+### Added - DevFlow Project Setup
+
+- **DevFlow Setup Modal**: Configuração automática de projetos
+  - Detecta se projeto tem arquivos DevFlow necessários
+  - Modal oferece instalação automática dos 5 agentes
+  - Copia arquivos de configuração (.claude/, .devflow/)
+  - Gera project.yaml, memory/index.json, knowledge-graph.json
+  - Opção de pular para projetos sem DevFlow
+
+- **IPC Module** (`devflow.ts`): Handlers para setup de projetos
+  - `devflow:check` - Verifica estrutura DevFlow
+  - `devflow:setup` - Copia arquivos necessários
+
 ### Added - Documentação Técnica
 
 - **docs/web.md**: Documentação completa do módulo Web IDE
@@ -32,6 +83,8 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Changed
 
 - **docs/ARCHITECTURE.md**: Adicionadas referências para web.md e desktop.md
+- **App.tsx**: Fluxo de inicialização com verificação de requisitos
+- **shared/types.ts**: Novos tipos para Requirements e DevFlow status
 
 ---
 
