@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
+import type { DevFlowStatus, DevFlowSetupResult } from '../shared/types'
 
 // Type definitions for the exposed API
 export interface ElectronAPI {
@@ -45,6 +46,10 @@ export interface ElectronAPI {
 
   // Autopilot
   executeAgent: (agent: string, prompt: string, cwd: string) => Promise<string>
+
+  // DevFlow
+  checkDevFlow: (projectPath: string) => Promise<DevFlowStatus>
+  setupDevFlow: (projectPath: string) => Promise<DevFlowSetupResult>
 
   // Project/Dialog
   selectDirectory: () => Promise<string | null>
@@ -180,6 +185,10 @@ const api: ElectronAPI = {
 
   // Autopilot
   executeAgent: (agent, prompt, cwd) => ipcRenderer.invoke('autopilot:execute', agent, prompt, cwd),
+
+  // DevFlow
+  checkDevFlow: (projectPath) => ipcRenderer.invoke('devflow:check', projectPath),
+  setupDevFlow: (projectPath) => ipcRenderer.invoke('devflow:setup', projectPath),
 
   // Project/Dialog
   selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),

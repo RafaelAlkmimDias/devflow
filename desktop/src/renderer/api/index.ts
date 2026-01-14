@@ -23,4 +23,6 @@ export type {
   Spec,
   SearchOptions,
   SearchResult,
-} from '../../shared/types'
+  DevFlowStatus,
+  DevFlowSetupResult,
+} from '@shared/types'

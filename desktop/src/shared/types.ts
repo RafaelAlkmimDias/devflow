@@ -100,6 +100,20 @@ export interface AgentExecution {
   error?: string
 }
 
+// DevFlow types
+export interface DevFlowStatus {
+  isDevFlowProject: boolean
+  hasAgents: boolean
+  hasDevflowFolder: boolean
+  missingFiles: string[]
+  missingFolders: string[]
+}
+
+export interface DevFlowSetupResult {
+  success: boolean
+  error?: string
+}
+
 // IPC Channel names
 export const IPC_CHANNELS = {
   // Files
@@ -142,6 +156,10 @@ export const IPC_CHANNELS = {
 
   // Autopilot
   AUTOPILOT_EXECUTE: 'autopilot:execute',
+
+  // DevFlow
+  DEVFLOW_CHECK: 'devflow:check',
+  DEVFLOW_SETUP: 'devflow:setup',
 
   // Dialog/Project
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',

@@ -5,6 +5,36 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added - Documentação Técnica
+
+- **docs/web.md**: Documentação completa do módulo Web IDE
+  - Estrutura de diretórios detalhada
+  - Tech stack completo (Next.js 16, React 18, Zustand, Monaco, xterm.js)
+  - Documentação de todas as rotas e API endpoints
+  - 7 Zustand stores documentados
+  - Componentes organizados por categoria
+  - Atalhos de teclado
+  - Sistema de agentes e fluxo Autopilot
+  - Sistema de tipos TypeScript
+
+- **docs/desktop.md**: Documentação completa do aplicativo Desktop
+  - Arquitetura Electron (main, preload, renderer)
+  - Tech stack (Electron 33, Vite 6, node-pty)
+  - 7 módulos IPC documentados (50+ handlers)
+  - 6 Zustand stores
+  - 25+ componentes React
+  - Menus da aplicação
+  - Build e packaging (macOS, Windows, Linux)
+  - Integração com Claude CLI
+
+### Changed
+
+- **docs/ARCHITECTURE.md**: Adicionadas referências para web.md e desktop.md
+
+---
+
 ## [0.6.0] - 2025-12-29
 
 ### Added - Permission Mode Configuration

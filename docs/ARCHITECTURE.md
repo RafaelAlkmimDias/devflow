@@ -205,6 +205,8 @@ web/
 - [Quick Start](QUICKSTART.md)
 - [Instalação](INSTALLATION.md)
 - [Changelog](CHANGELOG.md)
+- [Web IDE](web.md)
+- [Desktop App](desktop.md)
 
 ---
 

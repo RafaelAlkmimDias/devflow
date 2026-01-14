@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { api } from './api';
+import { api, DevFlowStatus } from './api';
 import { useProjectStore } from '@/lib/stores/projectStore';
 import { useFileStore } from '@/lib/stores/fileStore';
 import { useUIStore } from '@/lib/stores/uiStore';
@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { GitPanel } from '@/components/git';
-import { QuickOpen, GlobalSearch, CommandPalette } from '@/components/modals';
+import { QuickOpen, GlobalSearch, CommandPalette, DevFlowSetupModal } from '@/components/modals';
 import { SettingsPanel } from '@/components/settings';
 
 // Project Selector Component
@@ -309,6 +309,11 @@ function App() {
   const [recentProjects, setRecentProjects] = useState<string[]>([]);
   const [version, setVersion] = useState<string>('');
 
+  // DevFlow setup modal state
+  const [showDevFlowSetup, setShowDevFlowSetup] = useState(false);
+  const [devFlowStatus, setDevFlowStatus] = useState<DevFlowStatus | null>(null);
+  const [pendingProjectPath, setPendingProjectPath] = useState<string | null>(null);
+
   useEffect(() => {
     // Load initial data
     api.getVersion().then(setVersion);
@@ -316,9 +321,48 @@ function App() {
   }, []);
 
   const handleSelectProject = async (path: string) => {
+    // Check DevFlow status first
+    try {
+      const status = await api.checkDevFlow(path);
+
+      if (!status.isDevFlowProject) {
+        // Project doesn't have DevFlow, show setup modal
+        setPendingProjectPath(path);
+        setDevFlowStatus(status);
+        setShowDevFlowSetup(true);
+      } else {
+        // Project has DevFlow, open directly
+        completeProjectOpen(path);
+      }
+    } catch (error) {
+      // If check fails, open project anyway
+      console.error('DevFlow check failed:', error);
+      completeProjectOpen(path);
+    }
+  };
+
+  const completeProjectOpen = async (path: string) => {
     setProjectPath(path);
     await api.addRecentProject(path);
     setRecentProjects(await api.getRecentProjects());
+  };
+
+  const handleDevFlowSetupComplete = () => {
+    setShowDevFlowSetup(false);
+    if (pendingProjectPath) {
+      completeProjectOpen(pendingProjectPath);
+      setPendingProjectPath(null);
+    }
+    setDevFlowStatus(null);
+  };
+
+  const handleDevFlowSetupSkip = () => {
+    setShowDevFlowSetup(false);
+    if (pendingProjectPath) {
+      completeProjectOpen(pendingProjectPath);
+      setPendingProjectPath(null);
+    }
+    setDevFlowStatus(null);
   };
 
   return (
@@ -348,6 +392,17 @@ function App() {
       <GlobalSearch />
       <CommandPalette />
       <SettingsPanel />
+
+      {/* DevFlow Setup Modal */}
+      {pendingProjectPath && devFlowStatus && (
+        <DevFlowSetupModal
+          isOpen={showDevFlowSetup}
+          projectPath={pendingProjectPath}
+          status={devFlowStatus}
+          onClose={handleDevFlowSetupSkip}
+          onSetupComplete={handleDevFlowSetupComplete}
+        />
+      )}
     </>
   );
 }
