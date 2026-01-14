@@ -24,6 +24,12 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Desselecionar ao clicar em área vazia**: Clique fora de itens desseleciona
   - Permite criar arquivos na raiz mesmo após selecionar uma pasta
 
+- **Drag and Drop**: Mover arquivos/pastas arrastando para outra pasta
+  - Arrastar qualquer arquivo ou pasta
+  - Soltar apenas em pastas (não em arquivos)
+  - Validação impede soltar pasta dentro de si mesma
+  - Feedback visual: pasta destino destacada com borda roxa
+
 ### Changed - File Explorer UI
 
 - **Estilo do arquivo ativo**: Removido fundo roxo, agora usa texto estilizado

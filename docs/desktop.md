@@ -387,12 +387,16 @@ interface SettingsState {
 | `FileContextMenu` | Menu de contexto (criar, renomear, deletar) |
 
 **Comportamentos do FileExplorer:**
+
 - Botões de criar arquivo/pasta no header respeitam seleção atual
   - Pasta selecionada → cria dentro dela
   - Arquivo selecionado → cria no diretório pai
   - Nada selecionado → cria na raiz do projeto
 - Clique em área vazia desseleciona item atual
 - Arquivo ativo exibido com nome em **negrito azul claro** (`text-sky-400`)
+- **Drag and Drop**: Arrastar arquivos/pastas para mover entre diretórios
+  - Soltar apenas em pastas (feedback visual com borda roxa)
+  - Validação impede mover pasta para dentro de si mesma
 
 ### Terminal
 
