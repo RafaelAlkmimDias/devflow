@@ -1,8 +1,46 @@
 import { ipcMain } from 'electron'
-import { exec, execSync } from 'child_process'
+import { exec } from 'child_process'
 import { promisify } from 'util'
+import { existsSync, readdirSync } from 'fs'
+import { join } from 'path'
+import os from 'os'
 
 const execAsync = promisify(exec)
+
+// Get extended PATH including nvm, homebrew, etc.
+function getExtendedPath(): string {
+  const home = os.homedir()
+  const paths: string[] = []
+
+  // Add nvm paths (find all installed node versions)
+  const nvmDir = join(home, '.nvm', 'versions', 'node')
+  if (existsSync(nvmDir)) {
+    try {
+      const versions = readdirSync(nvmDir)
+      for (const version of versions) {
+        const binPath = join(nvmDir, version, 'bin')
+        if (existsSync(binPath)) {
+          paths.push(binPath)
+        }
+      }
+    } catch {
+      // Ignore errors reading nvm directory
+    }
+  }
+
+  // Add common paths
+  paths.push('/usr/local/bin')
+  paths.push('/opt/homebrew/bin')
+  paths.push(join(home, '.local', 'bin'))
+  paths.push(join(home, 'bin'))
+
+  // Add existing PATH
+  if (process.env.PATH) {
+    paths.push(process.env.PATH)
+  }
+
+  return paths.join(':')
+}
 
 export interface Requirement {
   id: string
@@ -31,7 +69,13 @@ async function checkCommand(
   versionFlag: string = '--version'
 ): Promise<{ exists: boolean; version?: string }> {
   try {
-    const { stdout } = await execAsync(`${command} ${versionFlag}`)
+    const { stdout } = await execAsync(`${command} ${versionFlag}`, {
+      timeout: 10000,
+      env: {
+        ...process.env,
+        PATH: getExtendedPath(),
+      },
+    })
     // Extract version from output (usually first line, first version-like string)
     const versionMatch = stdout.match(/(\d+\.\d+(\.\d+)?)/);
     return {
@@ -46,9 +90,14 @@ async function checkCommand(
 // Check Claude CLI authentication status
 async function checkClaudeAuth(): Promise<boolean> {
   try {
-    // Try to run a simple claude command that requires auth
-    const { stdout } = await execAsync('claude --version', { timeout: 5000 })
-    return stdout.includes('claude')
+    const { stdout } = await execAsync('claude --version', {
+      timeout: 5000,
+      env: {
+        ...process.env,
+        PATH: getExtendedPath(),
+      },
+    })
+    return stdout.includes('claude') || stdout.includes('Claude')
   } catch {
     return false
   }

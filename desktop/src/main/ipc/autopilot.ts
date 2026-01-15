@@ -1,5 +1,8 @@
 import { ipcMain } from 'electron'
 import { spawn } from 'child_process'
+import { existsSync, readdirSync } from 'fs'
+import { join } from 'path'
+import os from 'os'
 import { AgentType } from '../../shared/types'
 
 // Map agent types to Claude Code skills
@@ -9,6 +12,41 @@ const AGENT_SKILLS: Record<AgentType, string> = {
   builder: '/agents:builder',
   guardian: '/agents:guardian',
   chronicler: '/agents:chronicler',
+}
+
+// Get extended PATH including nvm, homebrew, etc.
+function getExtendedPath(): string {
+  const home = os.homedir()
+  const paths: string[] = []
+
+  // Add nvm paths (find all installed node versions)
+  const nvmDir = join(home, '.nvm', 'versions', 'node')
+  if (existsSync(nvmDir)) {
+    try {
+      const versions = readdirSync(nvmDir)
+      for (const version of versions) {
+        const binPath = join(nvmDir, version, 'bin')
+        if (existsSync(binPath)) {
+          paths.push(binPath)
+        }
+      }
+    } catch {
+      // Ignore errors reading nvm directory
+    }
+  }
+
+  // Add common paths
+  paths.push('/usr/local/bin')
+  paths.push('/opt/homebrew/bin')
+  paths.push(join(home, '.local', 'bin'))
+  paths.push(join(home, 'bin'))
+
+  // Add existing PATH
+  if (process.env.PATH) {
+    paths.push(process.env.PATH)
+  }
+
+  return paths.join(':')
 }
 
 export function registerAutopilotHandlers(): void {
@@ -27,13 +65,13 @@ export function registerAutopilotHandlers(): void {
         // Build the command
         const fullPrompt = `${skill} ${prompt}`
 
-        // Spawn claude process
+        // Spawn claude process with extended PATH
         const proc = spawn('claude', ['-p', fullPrompt], {
           cwd,
           shell: true,
           env: {
             ...process.env,
-            // Ensure proper terminal handling
+            PATH: getExtendedPath(),
             TERM: 'dumb',
           },
         })

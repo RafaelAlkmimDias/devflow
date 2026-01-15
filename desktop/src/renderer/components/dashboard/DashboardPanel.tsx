@@ -97,8 +97,8 @@ export function DashboardPanel({ projectPath }: DashboardPanelProps) {
       const devflowStatus = await api.checkDevFlow(path);
       const requirementsStatus = await api.checkRequirements();
 
-      // Find Claude CLI status
-      const claudeReq = requirementsStatus.requirements.find(r => r.id === 'claude-cli');
+      // Find Claude CLI status (id is 'claude' in the backend)
+      const claudeReq = requirementsStatus.requirements.find(r => r.id === 'claude');
 
       setHealth({
         claudeCli: {

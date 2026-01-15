@@ -7,6 +7,27 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed - Terminal Duplicated Input
+
+- **SessionId único por mount**: Corrigido problema de digitação duplicada no terminal
+  - React StrictMode causava double-mount com conflitos de sessão
+  - Cada mount agora gera sessionId único com timestamp e sufixo aleatório
+  - Refs (`currentSessionIdRef`, `isInitializingRef`) rastreiam estado de inicialização
+  - Funções de resize, writeCommand e tab management usam refs consistentemente
+  - Cleanup robusto destrói sessão correta ao desmontar
+
+### Fixed - Claude CLI Detection on macOS
+
+- **Extended PATH**: Aplicativos GUI no macOS não herdam PATH do shell
+  - Função `getExtendedPath()` detecta dinamicamente paths do nvm
+  - Escaneia `~/.nvm/versions/node/*/bin` para todas as versões instaladas
+  - Inclui paths comuns: `/usr/local/bin`, `/opt/homebrew/bin`, `~/.local/bin`
+  - Aplicado em `requirements.ts` e `autopilot.ts`
+
+- **Dashboard ID mismatch**: Corrigido ID de busca do Claude CLI
+  - Dashboard buscava `'claude-cli'` mas backend retornava `'claude'`
+  - Corrigido para usar ID correto no `DashboardPanel.tsx`
+
 ### Fixed - File Explorer Tree Update
 
 - **Tree Version System**: Corrigido problema onde a árvore não atualizava ao criar arquivos
