@@ -25,7 +25,7 @@ O DevFlow Desktop é um aplicativo Electron que oferece uma experiência de IDE 
 │ Explorer│                               │
 │ Git     ├───────────────────────────────┤
 │ Specs   │                               │
-│         │       Terminal Panel          │
+│Dashboard│       Terminal Panel          │
 │         │        (xterm.js)             │
 ├─────────┴───────────────────────────────┤
 │              Status Bar                 │
@@ -59,18 +59,19 @@ desktop/
 │   │   ├── App.tsx             # Componente principal
 │   │   ├── main.tsx            # Entry point React
 │   │   ├── api/                # Wrapper IPC
-│   │   ├── components/         # Componentes React (25+)
+│   │   ├── components/         # Componentes React (30+)
 │   │   │   ├── layout/         # Shell, Sidebar, StatusBar
 │   │   │   ├── editor/         # Monaco, Tabs, Preview
-│   │   │   ├── explorer/       # FileTree, FileExplorer
+│   │   │   ├── explorer/       # FileTree, FileExplorer, FileContextMenu
 │   │   │   ├── terminal/       # TerminalPanel
 │   │   │   ├── git/            # GitPanel
-│   │   │   ├── modals/         # QuickOpen, GlobalSearch
+│   │   │   ├── dashboard/      # DashboardPanel
+│   │   │   ├── specs/          # SpecsPanel
+│   │   │   ├── autopilot/      # AutopilotPanel, AutopilotConfigModal
+│   │   │   ├── modals/         # QuickOpen, GlobalSearch, DevFlowSetupModal
 │   │   │   ├── settings/       # SettingsPanel
 │   │   │   ├── agents/         # AgentIcons
-│   │   │   ├── autopilot/      # Autopilot UI
-│   │   │   ├── specs/          # Specs UI
-│   │   │   └── ui/             # Componentes UI genéricos
+│   │   │   └── ui/             # Componentes UI genéricos (Skeleton, ResizeHandle)
 │   │   ├── hooks/              # Custom React hooks
 │   │   ├── lib/
 │   │   │   ├── stores/         # Zustand stores
@@ -316,7 +317,7 @@ interface UIState {
   theme: 'dark' | 'light' | 'system'
   sidebarVisible: boolean
   sidebarWidth: number
-  activePanel: 'explorer' | 'git' | 'specs'
+  activePanel: 'explorer' | 'git' | 'specs' | 'dashboard'
   terminalVisible: boolean
   terminalHeight: number
   terminalMaximized: boolean
@@ -353,6 +354,45 @@ interface SettingsState {
   preferences: UserPreferences
 }
 ```
+
+### autopilotStore
+
+```typescript
+interface AutopilotState {
+  // State
+  status: 'idle' | 'running' | 'completed' | 'failed'
+  currentPhaseIndex: number
+  phases: PhaseResult[]
+  error: string | null
+  specId: string | null
+  specTitle: string | null
+
+  // Config modal
+  isConfigModalOpen: boolean
+  selectedSpecId: string | null
+  selectedSpecTitle: string | null
+  selectedSpecContent: string | null
+}
+
+// Actions
+openConfigModal(specId, specTitle, specContent)
+closeConfigModal()
+startRun(config, projectPath)  // Executa agentes via IPC
+reset()
+
+// PhaseResult
+interface PhaseResult {
+  agent: AgentId      // 'strategist' | 'architect' | 'builder' | 'guardian' | 'chronicler'
+  name: string
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+  output?: string
+  error?: string
+  duration?: number   // Tempo de execução em ms
+}
+```
+
+> **Nota**: O `autopilotStore` usa persist middleware para manter o estado entre sessões.
+> Executa agentes sequencialmente via `api.executeAgent()` que chama o Claude CLI.
 
 ---
 
@@ -409,6 +449,56 @@ interface SettingsState {
 | Componente | Descrição |
 |------------|-----------|
 | `GitPanel` | Painel de controle Git |
+
+### Dashboard
+
+| Componente | Descrição |
+|------------|-----------|
+| `DashboardPanel` | Painel de visão geral do projeto |
+
+**Features do DashboardPanel:**
+- Stat cards: User Stories, Tasks, ADRs, Specs
+- Progress bar geral do projeto (% de tasks completas)
+- Atividade recente: tasks completadas e em progresso
+- Health check: Claude CLI, estrutura DevFlow, Git
+- Task breakdown por status (pending, in_progress, completed, blocked)
+- Botão de refresh para recarregar dados
+
+### Specs
+
+| Componente | Descrição |
+|------------|-----------|
+| `SpecsPanel` | Painel de especificações com 3 views |
+
+**Features do SpecsPanel:**
+- **Requirements**: Lista de user stories e requisitos
+- **Design**: Decisões de arquitetura (ADRs)
+- **Tasks**: Lista de tarefas com status visual
+- Busca e filtro por status/prioridade
+- Navegação por teclado (setas, Enter para abrir, Escape para fechar)
+- Botão "Run Autopilot" para executar pipeline
+
+### Autopilot
+
+| Componente | Descrição |
+|------------|-----------|
+| `AutopilotPanel` | Painel flutuante de execução do pipeline |
+| `AutopilotConfigModal` | Modal de configuração de fases |
+
+**Features do AutopilotPanel:**
+- Exibição em tempo real do progresso
+- 5 fases: Planning, Design, Implementation, Validation, Documentation
+- Timer de tempo decorrido
+- Expandir/colapsar output de cada fase
+- Maximizar painel para visualização completa
+- Estados visuais: pending, running, completed, failed, skipped
+- Barra de progresso com cores por estado
+
+**Features do AutopilotConfigModal:**
+- Seleção de fases via checkboxes
+- Estimativa de tempo baseada nas fases selecionadas
+- Informação da spec selecionada
+- Validação: pelo menos uma fase deve ser selecionada
 
 ### Modais
 

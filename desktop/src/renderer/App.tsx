@@ -27,6 +27,10 @@ import { Toaster } from 'sonner';
 import { GitPanel } from '@/components/git';
 import { QuickOpen, GlobalSearch, CommandPalette, DevFlowSetupModal, RequirementsModal } from '@/components/modals';
 import { SettingsPanel } from '@/components/settings';
+import { DashboardPanel } from '@/components/dashboard/DashboardPanel';
+import { SpecsPanel } from '@/components/specs/SpecsPanel';
+import { AutopilotPanel } from '@/components/autopilot/AutopilotPanel';
+import { AutopilotConfigModal } from '@/components/autopilot/AutopilotConfigModal';
 
 // Project Selector Component
 function ProjectSelector({
@@ -258,10 +262,10 @@ function IDE({ projectPath }: { projectPath: string }) {
                 <GitPanel projectPath={projectPath} />
               )}
               {activePanel === 'specs' && (
-                <div className="p-4 text-gray-500 text-sm">Specs Panel (coming soon)</div>
+                <SpecsPanel projectPath={projectPath} />
               )}
               {activePanel === 'dashboard' && (
-                <div className="p-4 text-gray-500 text-sm">Dashboard (coming soon)</div>
+                <DashboardPanel projectPath={projectPath} />
               )}
             </aside>
             <ResizeHandle
@@ -299,6 +303,10 @@ function IDE({ projectPath }: { projectPath: string }) {
 
       {/* Status Bar */}
       <StatusBar />
+
+      {/* Autopilot Components */}
+      <AutopilotPanel />
+      <AutopilotConfigModal projectPath={projectPath} />
     </div>
   );
 }

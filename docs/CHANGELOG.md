@@ -36,6 +36,41 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Nome em **negrito** (`font-semibold`)
   - Cor **azul claro** (`text-sky-400`)
 
+### Added - Desktop Panels (Web Parity)
+
+- **DashboardPanel**: Painel de visão geral do projeto
+  - Estatísticas: User Stories, Tasks, ADRs, Specs
+  - Barra de progresso geral do projeto
+  - Atividade recente (tasks completadas, em progresso)
+  - Health check: Claude CLI, estrutura do projeto, Git
+  - Task breakdown por status (pending, in_progress, completed, blocked)
+
+- **SpecsPanel**: Painel de especificações com 3 views
+  - Requirements: Lista de user stories e requisitos
+  - Design: Decisões de arquitetura (ADRs)
+  - Tasks: Lista de tarefas com status
+  - Busca e filtros por status/prioridade
+  - Navegação por teclado (setas, Enter, Escape)
+  - Integração com Autopilot via botão "Run Autopilot"
+
+- **AutopilotPanel**: Painel de execução do pipeline
+  - Exibição do progresso em tempo real
+  - 5 fases: Planning, Design, Implementation, Validation, Documentation
+  - Tempo decorrido e estimativa de conclusão
+  - Expandir/colapsar output de cada fase
+  - Maximizar painel para visualização completa
+  - Estados visuais: pending, running, completed, failed, skipped
+
+- **AutopilotConfigModal**: Modal de configuração do Autopilot
+  - Seleção de fases a executar (checkboxes)
+  - Estimativa de tempo baseada nas fases selecionadas
+  - Integração com IPC para execução via Claude CLI
+
+- **autopilotStore**: Store Zustand para estado do Autopilot
+  - Gerenciamento de fases e progresso
+  - Execução sequencial de agentes via IPC
+  - Persistência de estado em localStorage
+
 ### Added - System Requirements Check
 
 - **Requirements Modal**: Verificação de dependências ao iniciar o app
