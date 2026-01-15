@@ -84,6 +84,8 @@ export function TerminalPanel({
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isConnectedRef = useRef(false);
   const hasShownConnectToast = useRef(false);
+  const isInitializingRef = useRef(false);
+  const currentSessionIdRef = useRef<string | null>(null);
 
   const WRITE_BUFFER_DELAY = 10; // ms - batch input writes
   const READ_BUFFER_DELAY = 16; // ms - batch output reads (~1 frame at 60fps)
@@ -132,14 +134,31 @@ export function TerminalPanel({
   const initTerminal = useCallback(async (sessionId: string) => {
     if (!containerRef.current) return;
 
+    // Prevent double initialization (React StrictMode)
+    if (isInitializingRef.current && currentSessionIdRef.current === sessionId) {
+      return;
+    }
+
+    // If same session is already connected, skip
+    if (currentSessionIdRef.current === sessionId && terminalRef.current && isConnectedRef.current) {
+      return;
+    }
+
+    isInitializingRef.current = true;
+    currentSessionIdRef.current = sessionId;
+
     // Cleanup existing terminal
     if (terminalRef.current) {
       terminalRef.current.dispose();
+      terminalRef.current = null;
     }
     if (cleanupRef.current) {
       cleanupRef.current();
       cleanupRef.current = null;
     }
+
+    // Get current font size from store
+    const currentFontSize = useSettingsStore.getState().terminalFontSize;
 
     // Create new terminal instance
     const terminal = new Terminal({
@@ -168,7 +187,7 @@ export function TerminalPanel({
         brightWhite: '#ffffff',
       },
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-      fontSize: terminalFontSize,
+      fontSize: currentFontSize,
       fontWeight: '400',
       fontWeightBold: '600',
       letterSpacing: 0,
@@ -262,6 +281,7 @@ export function TerminalPanel({
       setIsConnected(true);
       setIsConnecting(false);
       isConnectedRef.current = true;
+      isInitializingRef.current = false;
 
       // Only show toast once per session
       if (!hasShownConnectToast.current) {
@@ -294,8 +314,10 @@ export function TerminalPanel({
       console.error('Terminal init error:', error);
       terminal.write('\x1b[31mFailed to connect to terminal session\x1b[0m\r\n');
       setIsConnecting(false);
+      isInitializingRef.current = false;
     }
-  }, [projectPath, terminalFontSize]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectPath]);
 
   // Handle resize with debouncing
   const handleResize = useCallback(() => {
@@ -304,23 +326,26 @@ export function TerminalPanel({
     }
 
     resizeTimeoutRef.current = setTimeout(() => {
-      if (!fitAddonRef.current || !terminalRef.current || !activeTab) return;
+      if (!fitAddonRef.current || !terminalRef.current || !currentSessionIdRef.current) return;
 
       try {
         fitAddonRef.current.fit();
         const { cols, rows } = terminalRef.current;
-        api.resizeTerminal(activeTab.sessionId, cols, rows).catch(() => {});
+        api.resizeTerminal(currentSessionIdRef.current, cols, rows).catch(() => {});
       } catch {
         // Ignore fit errors
       }
     }, RESIZE_DEBOUNCE_DELAY);
-  }, [activeTab]);
+  }, []);
 
-  // Initialize terminal on mount
+  // Initialize terminal on mount - only when tab changes
   useEffect(() => {
-    if (activeTab) {
-      initTerminal(activeTab.sessionId);
-    }
+    if (!activeTab) return;
+
+    // Generate a unique sessionId for this mount instance to avoid StrictMode conflicts
+    const uniqueSessionId = `${activeTab.sessionId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    initTerminal(uniqueSessionId);
 
     return () => {
       if (writeTimeoutRef.current) clearTimeout(writeTimeoutRef.current);
@@ -329,14 +354,39 @@ export function TerminalPanel({
       writeBufferRef.current = '';
       readBufferRef.current = '';
       hasShownConnectToast.current = false;
+      isInitializingRef.current = false;
+      isConnectedRef.current = false;
+      currentSessionIdRef.current = null;
 
       if (terminalRef.current) {
         try { terminalRef.current.dispose(); } catch {}
+        terminalRef.current = null;
       }
-      if (cleanupRef.current) cleanupRef.current();
-      if (activeTab) api.destroyTerminal(activeTab.sessionId).catch(() => {});
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+      api.destroyTerminal(uniqueSessionId).catch(() => {});
     };
-  }, [activeTab?.sessionId, initTerminal]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab?.id]);
+
+  // Update font size without reinitializing terminal
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.options.fontSize = terminalFontSize;
+      // Refit after font size change
+      setTimeout(() => {
+        if (fitAddonRef.current && currentSessionIdRef.current) {
+          try {
+            fitAddonRef.current.fit();
+            const { cols, rows } = terminalRef.current!;
+            api.resizeTerminal(currentSessionIdRef.current, cols, rows).catch(() => {});
+          } catch {}
+        }
+      }, 50);
+    }
+  }, [terminalFontSize]);
 
   // Setup resize observer
   useEffect(() => {
@@ -359,9 +409,10 @@ export function TerminalPanel({
     const newId = String(Date.now());
     const newSessionId = 'terminal-' + newId;
 
-    if (activeTab) {
+    // Cleanup current terminal
+    if (currentSessionIdRef.current) {
       cleanupRef.current?.();
-      api.destroyTerminal(activeTab.sessionId).catch(() => {});
+      api.destroyTerminal(currentSessionIdRef.current).catch(() => {});
     }
 
     setTabs([
@@ -374,7 +425,10 @@ export function TerminalPanel({
     if (tabs.length === 1) return;
 
     const tabToClose = tabs.find(t => t.id === id);
-    if (tabToClose) api.destroyTerminal(tabToClose.sessionId).catch(() => {});
+    // If closing the active tab, destroy its session
+    if (tabToClose?.isActive && currentSessionIdRef.current) {
+      api.destroyTerminal(currentSessionIdRef.current).catch(() => {});
+    }
 
     const remaining = tabs.filter(t => t.id !== id);
     if (tabs.find(t => t.id === id)?.isActive && remaining.length > 0) {
@@ -385,14 +439,18 @@ export function TerminalPanel({
 
   const selectTab = (id: string) => {
     if (activeTab?.id === id) return;
-    if (activeTab) cleanupRef.current?.();
+    // Cleanup current terminal before switching
+    if (currentSessionIdRef.current) {
+      cleanupRef.current?.();
+      api.destroyTerminal(currentSessionIdRef.current).catch(() => {});
+    }
     setTabs(tabs.map(t => ({ ...t, isActive: t.id === id })));
   };
 
   const writeCommand = useCallback((command: string) => {
-    if (!activeTab) return;
-    api.writeTerminal(activeTab.sessionId, command + '\r').catch(() => {});
-  }, [activeTab]);
+    if (!currentSessionIdRef.current) return;
+    api.writeTerminal(currentSessionIdRef.current, command + '\r').catch(() => {});
+  }, []);
 
   return (
     <div
