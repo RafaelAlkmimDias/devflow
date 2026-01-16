@@ -48,43 +48,93 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      // Load specs from the .devflow/specs directory
-      const specsPath = `${projectPath}/.devflow/specs`;
-      const specsData = await api.parseSpecs(specsPath);
+      // Load specs from all project directories (docs/planning, docs/decisions, etc.)
+      const specsData = await api.parseSpecs(projectPath);
 
-      // Transform spec data into our types
-      const specs: Spec[] = specsData.map(spec => ({
-        id: spec.id,
-        name: spec.title,
-        description: spec.content.substring(0, 200),
-        phase: 'requirements' as SpecPhase,
-        status: spec.status as 'draft' | 'approved' | 'implemented',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        filePath: `${specsPath}/${spec.id}.md`,
-      }));
+      // Separate by type
+      const specs: Spec[] = [];
+      const requirements: Requirement[] = [];
+      const decisions: DesignDecision[] = [];
+      const tasks: Task[] = [];
 
-      // Extract tasks from specs
-      const tasks: Task[] = specsData.flatMap(spec =>
-        spec.tasks.map((task, index) => ({
-          id: `${spec.id}-task-${index}`,
-          specId: spec.id,
-          filePath: `${specsPath}/${spec.id}.md`,
-          title: task.text,
-          description: '',
-          status: task.completed ? 'completed' as const : 'pending' as const,
-          priority: 'medium' as const,
-          dependencies: [],
+      for (const spec of specsData) {
+        const specType = spec.metadata?.type as string || 'spec';
+        const filePath = spec.metadata?.filePath as string || '';
+
+        // Determine phase based on type
+        let phase: SpecPhase = 'requirements';
+        if (specType === 'adr') {
+          phase = 'design';
+        } else if (specType === 'spec' && !filePath.includes('stories')) {
+          phase = 'design';
+        }
+
+        // Create base spec
+        const baseSpec: Spec = {
+          id: spec.id,
+          name: spec.title,
+          description: spec.content.substring(0, 200),
+          phase,
+          status: spec.status as 'draft' | 'approved' | 'implemented',
           createdAt: new Date(),
-        }))
-      );
+          updatedAt: new Date(),
+          filePath: `${projectPath}/${filePath}`,
+        };
+        specs.push(baseSpec);
+
+        // Create requirement for stories
+        if (specType === 'story') {
+          requirements.push({
+            id: `req-${spec.id}`,
+            specId: spec.id,
+            title: spec.title,
+            description: spec.content.substring(0, 500),
+            type: 'functional',
+            priority: spec.priority as 'must' | 'should' | 'could' | 'wont' || 'should',
+            acceptanceCriteria: spec.tasks.map(t => t.text),
+            status: spec.status as 'draft' | 'approved' | 'implemented',
+            filePath: `${projectPath}/${filePath}`,
+          });
+        }
+
+        // Create decision for ADRs
+        if (specType === 'adr') {
+          decisions.push({
+            id: `design-${spec.id}`,
+            specId: spec.id,
+            title: spec.title,
+            context: spec.content.substring(0, 500),
+            decision: '',
+            consequences: [],
+            status: spec.status === 'approved' ? 'accepted' : 'proposed',
+            filePath: `${projectPath}/${filePath}`,
+          });
+        }
+
+        // Extract tasks from spec
+        spec.tasks.forEach((task, index) => {
+          tasks.push({
+            id: `${spec.id}-task-${index}`,
+            specId: spec.id,
+            filePath: `${projectPath}/${filePath}`,
+            title: task.text,
+            description: '',
+            status: task.completed ? 'completed' as const : 'pending' as const,
+            priority: 'medium' as const,
+            dependencies: [],
+            createdAt: new Date(),
+            completedAt: task.completed ? new Date() : undefined,
+          });
+        });
+      }
 
       set({
         specs,
+        requirements,
+        decisions,
         tasks,
-        requirements: [],
-        decisions: [],
         isLoading: false,
+        error: null,
       });
     } catch (error) {
       console.error('Error loading specs:', error);
@@ -92,6 +142,8 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to load specs',
         isLoading: false,
         specs: [],
+        requirements: [],
+        decisions: [],
         tasks: [],
       });
     }

@@ -16,6 +16,46 @@ const REQUIRED_STRUCTURE = {
     '.claude/commands/agents/chronicler.md',
     '.claude/commands/agents/chronicler.meta.yaml',
   ],
+  // Agent subcommands (skills)
+  subcommands: [
+    // Strategist subcommands
+    '.claude/commands/strategist/analyze.md',
+    '.claude/commands/strategist/prd.md',
+    '.claude/commands/strategist/stories.md',
+    '.claude/commands/strategist/prioritize.md',
+    // Architect subcommands
+    '.claude/commands/architect/design.md',
+    '.claude/commands/architect/adr.md',
+    '.claude/commands/architect/diagram.md',
+    '.claude/commands/architect/review-arch.md',
+    // Builder subcommands
+    '.claude/commands/builder/implement.md',
+    '.claude/commands/builder/review.md',
+    '.claude/commands/builder/refactor.md',
+    '.claude/commands/builder/debug.md',
+    // Guardian subcommands
+    '.claude/commands/guardian/test-plan.md',
+    '.claude/commands/guardian/security-audit.md',
+    '.claude/commands/guardian/perf-review.md',
+    '.claude/commands/guardian/ci-setup.md',
+    // Chronicler subcommands
+    '.claude/commands/chronicler/document.md',
+    '.claude/commands/chronicler/update-docs.md',
+    '.claude/commands/chronicler/snapshot.md',
+    '.claude/commands/chronicler/sync-check.md',
+    '.claude/commands/chronicler/decision.md',
+  ],
+  // Quick commands
+  quick: [
+    '.claude/commands/quick/new-feature.md',
+    '.claude/commands/quick/create-adr.md',
+    '.claude/commands/quick/security-check.md',
+  ],
+  // General commands
+  general: [
+    '.claude/commands/devflow-help.md',
+    '.claude/commands/devflow-status.md',
+  ],
   devflow: [
     '.devflow/project.yaml',
     '.devflow/knowledge-graph.json',
@@ -29,6 +69,12 @@ const REQUIRED_STRUCTURE = {
   ],
   folders: [
     '.claude/commands/agents',
+    '.claude/commands/strategist',
+    '.claude/commands/architect',
+    '.claude/commands/builder',
+    '.claude/commands/guardian',
+    '.claude/commands/chronicler',
+    '.claude/commands/quick',
     '.devflow/agents',
     '.devflow/memory',
     '.devflow/sessions',
@@ -117,16 +163,30 @@ export function registerDevFlowHandlers(): void {
         }
       }
 
-      // Copy agent files
-      for (const file of REQUIRED_STRUCTURE.agents) {
-        const srcPath = path.join(templatesDir, file)
-        const destPath = path.join(projectPath, file)
+      // Helper function to copy files
+      const copyFiles = (files: string[]) => {
+        for (const file of files) {
+          const srcPath = path.join(templatesDir, file)
+          const destPath = path.join(projectPath, file)
 
-        if (fs.existsSync(srcPath) && !fs.existsSync(destPath)) {
-          const content = fs.readFileSync(srcPath, 'utf-8')
-          fs.writeFileSync(destPath, content, 'utf-8')
+          if (fs.existsSync(srcPath) && !fs.existsSync(destPath)) {
+            const content = fs.readFileSync(srcPath, 'utf-8')
+            fs.writeFileSync(destPath, content, 'utf-8')
+          }
         }
       }
+
+      // Copy agent files
+      copyFiles(REQUIRED_STRUCTURE.agents)
+
+      // Copy subcommand files
+      copyFiles(REQUIRED_STRUCTURE.subcommands)
+
+      // Copy quick commands
+      copyFiles(REQUIRED_STRUCTURE.quick)
+
+      // Copy general commands
+      copyFiles(REQUIRED_STRUCTURE.general)
 
       // Copy devflow files (but generate project.yaml with project name)
       const projectName = path.basename(projectPath)

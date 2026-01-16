@@ -45,13 +45,47 @@ Você está usando **DevFlow v0.3.0** - Sistema multi-agentes para desenvolvimen
 
 ---
 
-## ⚡ Slash Commands Rápidos
+## ⚡ Slash Commands
 
+### Comandos Gerais
 - `/devflow-status` - Ver estado atual do projeto
-- `/devflow-workflow` - Visualizar fluxo e próximos passos
-- `/new-feature` - Iniciar nova feature (wizard guiado)
-- `/create-adr` - Criar Architecture Decision Record
-- `/security-check` - Audit de segurança rápido
+- `/devflow-help` - Este guia
+
+### Quick Commands
+- `/quick:new-feature` - Iniciar nova feature (wizard guiado)
+- `/quick:create-adr` - Criar Architecture Decision Record
+- `/quick:security-check` - Audit de segurança rápido
+
+### Strategist (Planejamento)
+- `/strategist:analyze` - Análise profunda de um problema
+- `/strategist:prd` - Criar Product Requirements Document
+- `/strategist:stories` - Quebrar feature em user stories
+- `/strategist:prioritize` - Priorizar lista de features (RICE)
+
+### Architect (Design)
+- `/architect:design` - Design técnico de sistema
+- `/architect:adr` - Criar Architecture Decision Record
+- `/architect:diagram` - Criar diagramas Mermaid
+- `/architect:review-arch` - Review de arquitetura
+
+### Builder (Implementação)
+- `/builder:implement` - Implementar uma story
+- `/builder:review` - Code review
+- `/builder:refactor` - Refatorar código
+- `/builder:debug` - Investigar e resolver bugs
+
+### Guardian (Qualidade)
+- `/guardian:test-plan` - Criar plano de testes
+- `/guardian:security-audit` - Auditoria de segurança
+- `/guardian:perf-review` - Review de performance
+- `/guardian:ci-setup` - Configurar CI/CD
+
+### Chronicler (Documentação)
+- `/chronicler:document` - Documentar feature
+- `/chronicler:update-docs` - Atualizar docs após mudanças
+- `/chronicler:snapshot` - Criar snapshot do projeto
+- `/chronicler:sync-check` - Verificar sync código/docs
+- `/chronicler:decision` - Registrar decisão
 
 ---
 

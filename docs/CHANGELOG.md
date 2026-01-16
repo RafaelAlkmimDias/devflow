@@ -7,6 +7,60 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added - Agent Subcommands (Skills)
+
+- **Subcomandos de Agentes**: Criados skills específicos para cada agente
+  - Comandos como `/analyze`, `/prd` agora funcionam como `/strategist:analyze`, `/strategist:prd`
+
+  **Strategist** (`/strategist:*`):
+  - `analyze` - Análise profunda de problemas (5 Whys)
+  - `prd` - Criar Product Requirements Document
+  - `stories` - Quebrar feature em user stories
+  - `prioritize` - Priorizar features (RICE framework)
+
+  **Architect** (`/architect:*`):
+  - `design` - Design técnico de sistema
+  - `adr` - Criar Architecture Decision Record
+  - `diagram` - Criar diagramas Mermaid
+  - `review-arch` - Review de arquitetura
+
+  **Builder** (`/builder:*`):
+  - `implement` - Implementar uma story
+  - `review` - Code review
+  - `refactor` - Refatorar código
+  - `debug` - Investigar e resolver bugs
+
+  **Guardian** (`/guardian:*`):
+  - `test-plan` - Criar plano de testes
+  - `security-audit` - Auditoria de segurança (OWASP)
+  - `perf-review` - Review de performance
+  - `ci-setup` - Configurar CI/CD
+
+  **Chronicler** (`/chronicler:*`):
+  - `document` - Documentar feature
+  - `update-docs` - Atualizar docs após mudanças
+  - `snapshot` - Criar snapshot do projeto
+  - `sync-check` - Verificar sync código/docs
+  - `decision` - Registrar decisão
+
+- **devflow-help.md atualizado**: Lista completa de todos os comandos disponíveis
+
+### Fixed - Dashboard Not Showing Specs
+
+- **Specs Parser atualizado**: Dashboard agora busca em múltiplos diretórios
+  - Busca recursiva em `docs/planning/stories/` (User Stories)
+  - Busca recursiva em `docs/planning/` (PRDs e Specs)
+  - Busca recursiva em `docs/decisions/` (ADRs)
+  - Mantém compatibilidade com `.devflow/specs/` (legado)
+  - Detecta tipo automaticamente (story, adr, spec) pelo caminho do arquivo
+  - Extrai tasks (checkboxes) de todos os arquivos markdown
+
+- **specsStore atualizado**: Processa corretamente os diferentes tipos
+  - User Stories → requirements[]
+  - ADRs → decisions[]
+  - PRDs/Specs → specs[]
+  - Tasks de todos → tasks[]
+
 ### Fixed - Terminal Duplicated Input
 
 - **SessionId único por mount**: Corrigido problema de digitação duplicada no terminal

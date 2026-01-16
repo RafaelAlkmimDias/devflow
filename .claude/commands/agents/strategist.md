@@ -127,12 +127,14 @@ docs/
 
 ## 🛠️ Comandos Disponíveis
 
-### `/analyze <problema>`
+> **IMPORTANTE**: Use os comandos com o prefixo `/strategist:` no Claude CLI.
+
+### `/strategist:analyze <problema>`
 Análise profunda de um problema ou oportunidade.
 
 **Exemplo:**
-```
-@strategist /analyze Usuários estão reclamando que o checkout demora muito
+```bash
+/strategist:analyze Usuários estão reclamando que o checkout demora muito
 ```
 
 **Output:**
@@ -165,12 +167,12 @@ ROI estimado: 2-3 meses para recuperar investimento.
 
 ---
 
-### `/prd <feature/produto>`
+### `/strategist:prd <feature/produto>`
 Cria Product Requirements Document completo.
 
 **Exemplo:**
-```
-@strategist /prd Sistema de notificações em tempo real
+```bash
+/strategist:prd Sistema de notificações em tempo real
 ```
 
 **Output:** Arquivo `docs/planning/prd-notifications.md` com:
@@ -229,12 +231,12 @@ Sistema de notificações push em tempo real...
 
 ---
 
-### `/stories <feature>`
+### `/strategist:stories <feature>`
 Quebra uma feature em user stories acionáveis.
 
 **Exemplo:**
-```
-@strategist /stories Autenticação JWT
+```bash
+/strategist:stories Autenticação JWT
 ```
 
 **Output:** Múltiplos arquivos em `docs/planning/stories/auth/`:
@@ -271,12 +273,12 @@ Quebra uma feature em user stories acionáveis.
 
 ---
 
-### `/prioritize <lista de features>`
-Prioriza lista de features usando framework.
+### `/strategist:prioritize <lista de features>`
+Prioriza lista de features usando framework RICE.
 
 **Exemplo:**
-```
-@strategist /prioritize 
+```bash
+/strategist:prioritize 
 1. Notificações push
 2. Modo escuro
 3. Export para PDF

@@ -1,33 +1,96 @@
 import { ipcMain } from 'electron'
 import fs from 'fs/promises'
+import { existsSync } from 'fs'
 import path from 'path'
 import matter from 'gray-matter'
 import { Spec } from '../../shared/types'
 
-export function registerSpecsHandlers(): void {
-  // Parse specs from directory
-  ipcMain.handle('specs:parse', async (_, specsPath: string): Promise<Spec[]> => {
-    const specs: Spec[] = []
+// Directories where specs/stories/ADRs can be found (relative to project root)
+const SPEC_DIRECTORIES = [
+  'docs/planning/stories',      // User stories
+  'docs/planning',              // PRDs and specs
+  'docs/decisions',             // ADRs
+  '.devflow/specs',             // Legacy location
+]
 
-    try {
-      // Check if directory exists
-      const stat = await fs.stat(specsPath)
-      if (!stat.isDirectory()) {
-        return []
+// Determine spec type from file path
+function getSpecType(filePath: string): 'story' | 'adr' | 'spec' {
+  const lowerPath = filePath.toLowerCase()
+
+  if (lowerPath.includes('/stories/') || lowerPath.includes('us-') || lowerPath.includes('epic-')) {
+    return 'story'
+  }
+  if (lowerPath.includes('/decisions/') || lowerPath.includes('adr-')) {
+    return 'adr'
+  }
+  return 'spec'
+}
+
+// Recursively get all markdown files from a directory
+async function getMdFiles(dir: string): Promise<string[]> {
+  const files: string[] = []
+
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true })
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name)
+
+      if (entry.isDirectory()) {
+        // Recursively search subdirectories
+        const subFiles = await getMdFiles(fullPath)
+        files.push(...subFiles)
+      } else if (entry.isFile() && entry.name.endsWith('.md') && !entry.name.startsWith('.')) {
+        files.push(fullPath)
+      }
+    }
+  } catch {
+    // Directory doesn't exist or can't be read
+  }
+
+  return files
+}
+
+export function registerSpecsHandlers(): void {
+  // Parse specs from project (searches multiple directories)
+  ipcMain.handle('specs:parse', async (_, projectPath: string): Promise<Spec[]> => {
+    const specs: Spec[] = []
+    const seenIds = new Set<string>()
+
+    // Search all spec directories
+    for (const relDir of SPEC_DIRECTORIES) {
+      const dirPath = path.join(projectPath, relDir)
+
+      if (!existsSync(dirPath)) {
+        continue
       }
 
-      const files = await fs.readdir(specsPath)
-      const mdFiles = files.filter((f) => f.endsWith('.md'))
+      const mdFiles = await getMdFiles(dirPath)
 
-      for (const file of mdFiles) {
-        const filePath = path.join(specsPath, file)
-
+      for (const filePath of mdFiles) {
         try {
           const content = await fs.readFile(filePath, 'utf-8')
           const { data, content: body } = matter(content)
 
+          // Generate ID from filename
+          const fileName = path.basename(filePath, '.md')
+          const id = fileName.toLowerCase().replace(/\s+/g, '-')
+
+          // Skip if we've already seen this ID
+          if (seenIds.has(id)) {
+            continue
+          }
+          seenIds.add(id)
+
+          // Extract title from frontmatter or first H1
+          let title = data.title as string
+          if (!title) {
+            const h1Match = body.match(/^#\s+(.+)$/m)
+            title = h1Match ? h1Match[1] : fileName.replace(/-/g, ' ')
+          }
+
           // Extract tasks (checkboxes) from markdown
-          const taskRegex = /- \[([ xX])\] (.+)/g
+          const taskRegex = /[-*]\s*\[([ xX])\]\s*(.+)/g
           const tasks: { text: string; completed: boolean }[] = []
           let match
 
@@ -38,39 +101,49 @@ export function registerSpecsHandlers(): void {
             })
           }
 
+          // Determine spec type
+          const specType = getSpecType(filePath)
+
           specs.push({
-            id: file.replace('.md', ''),
-            title: (data.title as string) || file.replace('.md', '').replace(/-/g, ' '),
+            id,
+            title,
             status: (data.status as string) || 'draft',
             priority: (data.priority as string) || 'medium',
             content: body,
             tasks,
-            metadata: data,
+            metadata: {
+              ...data,
+              type: specType,
+              filePath: path.relative(projectPath, filePath),
+            },
           })
         } catch (error) {
-          console.error(`Error parsing spec file ${file}:`, error)
+          console.error(`Error parsing spec file ${filePath}:`, error)
         }
       }
-
-      // Sort by priority and status
-      const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 }
-      const statusOrder: Record<string, number> = {
-        'in-progress': 0,
-        todo: 1,
-        draft: 2,
-        done: 3,
-      }
-
-      specs.sort((a, b) => {
-        const statusDiff =
-          (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
-        if (statusDiff !== 0) return statusDiff
-
-        return (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99)
-      })
-    } catch (error) {
-      console.error('Error reading specs directory:', error)
     }
+
+    // Sort by type, then priority and status
+    const typeOrder: Record<string, number> = { story: 0, adr: 1, spec: 2 }
+    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 }
+    const statusOrder: Record<string, number> = {
+      'in-progress': 0,
+      todo: 1,
+      draft: 2,
+      done: 3,
+    }
+
+    specs.sort((a, b) => {
+      const typeA = (a.metadata?.type as string) || 'spec'
+      const typeB = (b.metadata?.type as string) || 'spec'
+      const typeDiff = (typeOrder[typeA] ?? 99) - (typeOrder[typeB] ?? 99)
+      if (typeDiff !== 0) return typeDiff
+
+      const statusDiff = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
+      if (statusDiff !== 0) return statusDiff
+
+      return (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99)
+    })
 
     return specs
   })
