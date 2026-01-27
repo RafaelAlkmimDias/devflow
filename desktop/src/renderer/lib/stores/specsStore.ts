@@ -84,11 +84,19 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
 
         // Create requirement for stories
         if (specType === 'story') {
+          // Extract description: remove H1 line and take content until first ## section
+          const descContent = spec.content
+            .replace(/^#\s+.+\n*/, '')
+            .split(/\n##\s/)[0]
+            .split('\n')
+            .filter(line => line.trim() !== '' && line.trim() !== '---')
+            .join('\n')
+            .trim();
           requirements.push({
             id: `req-${spec.id}`,
             specId: spec.id,
             title: spec.title,
-            description: spec.content.substring(0, 500),
+            description: descContent.substring(0, 500),
             type: 'functional',
             priority: spec.priority as 'must' | 'should' | 'could' | 'wont' || 'should',
             acceptanceCriteria: spec.tasks.map(t => t.text),

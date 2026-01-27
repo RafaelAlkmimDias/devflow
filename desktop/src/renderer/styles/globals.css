@@ -97,6 +97,10 @@
   --vscode-editor-background: hsl(var(--background)) !important;
 }
 
+.monaco-editor.no-user-select .view-line {
+  background-color: #000;
+}
+
 /* xterm overrides */
 .xterm {
   padding: 8px;

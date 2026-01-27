@@ -404,7 +404,13 @@ function RequirementCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-400 line-clamp-2 break-words">{requirement.description}</p>
+          <p className="text-xs text-gray-400 line-clamp-10 break-words whitespace-pre-line">
+            {requirement.description.split(/(\*\*[^*]+\*\*)/).map((part, i) =>
+              part.startsWith('**') && part.endsWith('**')
+                ? <strong key={i} className="font-bold text-gray-200">{part.slice(2, -2)}</strong>
+                : part
+            )}
+          </p>
 
           <ProgressBar progress={progress} />
 

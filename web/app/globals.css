@@ -82,6 +82,10 @@
   @apply rounded-md;
 }
 
+.monaco-editor.no-user-select .view-line {
+  background-color: #000;
+}
+
 /* Monaco editor line highlight animation */
 .highlight-line-animation {
   background-color: rgba(168, 85, 247, 0.3) !important;
