@@ -107,11 +107,18 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
 
         // Create decision for ADRs
         if (specType === 'adr') {
+          const adrContext = spec.content
+            .replace(/^#\s+.+\n*/, '')
+            .split(/\n##\s/)[0]
+            .split('\n')
+            .filter(line => line.trim() !== '' && line.trim() !== '---')
+            .join('\n')
+            .trim();
           decisions.push({
             id: `design-${spec.id}`,
             specId: spec.id,
             title: spec.title,
-            context: spec.content.substring(0, 500),
+            context: adrContext.substring(0, 500),
             decision: '',
             consequences: [],
             status: spec.status === 'approved' ? 'accepted' : 'proposed',

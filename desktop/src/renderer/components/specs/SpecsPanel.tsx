@@ -14,6 +14,7 @@ import {
   X,
   Loader2,
   Rocket,
+  ChevronDown,
 } from 'lucide-react';
 import type { SpecPhase, Spec, Requirement, DesignDecision, Task } from '@/lib/types';
 import { useSpecsStore, type SpecProgress } from '@/lib/stores/specsStore';
@@ -327,6 +328,7 @@ function RequirementCard({
   isSelected?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const [tasksExpanded, setTasksExpanded] = useState(false);
 
   useEffect(() => {
     if (isSelected && cardRef.current) {
@@ -335,6 +337,18 @@ function RequirementCard({
   }, [isSelected]);
 
   const { openConfigModal, status: autopilotStatus, specId: autopilotSpecId } = useAutopilotStore();
+  const { specs: allSpecs, getSpecProgress, getTasksBySpec } = useSpecsStore();
+  const specTasks = spec ? getTasksBySpec(spec.id) : [];
+
+  // Check if a dependency code (e.g. "US-001") matches an existing spec
+  // Returns: 'completed' | 'in_progress' | 'not_found'
+  const getDependencyStatus = useCallback((code: string): 'completed' | 'in_progress' | 'not_found' => {
+    const normalizedCode = code.trim().toLowerCase();
+    const matchingSpec = allSpecs.find(s => s.id.toLowerCase().startsWith(normalizedCode));
+    if (!matchingSpec) return 'not_found';
+    const progress = getSpecProgress(matchingSpec.id);
+    return progress.status === 'completed' ? 'completed' : progress.status === 'in_progress' ? 'in_progress' : 'not_found';
+  }, [allSpecs, getSpecProgress]);
 
   const priorityColors = {
     must: 'bg-red-500/20 text-red-400 border-red-500/30',
@@ -405,14 +419,110 @@ function RequirementCard({
             )}
           </div>
           <p className="text-xs text-gray-400 line-clamp-10 break-words whitespace-pre-line">
-            {requirement.description.split(/(\*\*[^*]+\*\*)/).map((part, i) =>
-              part.startsWith('**') && part.endsWith('**')
-                ? <strong key={i} className="font-bold text-gray-200">{part.slice(2, -2)}</strong>
-                : part
-            )}
+            {requirement.description.split('\n').map((line, lineIdx) => {
+              // Check if this is a dependency line
+              const depMatch = line.match(/^\*\*Depend[êe]ncias:\*\*\s*(.+)$/i);
+              if (depMatch) {
+                const depsText = depMatch[1];
+                // Split dependencies by comma
+                const deps = depsText.split(',').map(d => d.trim());
+                return (
+                  <span key={lineIdx}>
+                    <strong className="font-bold text-gray-200">Dependências:</strong>{' '}
+                    {deps.map((dep, depIdx) => {
+                      const codeMatch = dep.match(/^(US-\d+|ADR-\d+|EPIC-\d+)/i);
+                      const code = codeMatch?.[1] || '';
+                      const status = code ? getDependencyStatus(code) : 'not_found';
+                      const icon = status === 'completed' ? '✅' : status === 'in_progress' ? '⏳' : '❌';
+                      return (
+                        <span key={depIdx}>
+                          {depIdx > 0 && ', '}
+                          <span title={status === 'completed' ? 'Concluída' : status === 'in_progress' ? 'Em andamento' : 'Não encontrada'}>
+                            {icon} {dep}
+                          </span>
+                        </span>
+                      );
+                    })}
+                    {lineIdx < requirement.description.split('\n').length - 1 && '\n'}
+                  </span>
+                );
+              }
+              // Regular line: render bold markdown
+              return (
+                <span key={lineIdx}>
+                  {line.split(/(\*\*[^*]+\*\*)/).map((part, i) =>
+                    part.startsWith('**') && part.endsWith('**')
+                      ? <strong key={i} className="font-bold text-gray-200">{part.slice(2, -2)}</strong>
+                      : part
+                  )}
+                  {lineIdx < requirement.description.split('\n').length - 1 && '\n'}
+                </span>
+              );
+            })}
           </p>
 
-          <ProgressBar progress={progress} />
+          {progress.total > 0 && (
+            <div className="mt-2">
+              <div className="flex items-center gap-1">
+                <div className="flex-1">
+                  <ProgressBar progress={progress} />
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setTasksExpanded(!tasksExpanded); }}
+                  className="flex-shrink-0 p-0.5 rounded hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-300"
+                  aria-label={tasksExpanded ? 'Collapse tasks' : 'Expand tasks'}
+                >
+                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', tasksExpanded && 'rotate-180')} />
+                </button>
+              </div>
+
+              {tasksExpanded && specTasks.length > 0 && (
+                <div className="mt-2 space-y-1 border-t border-white/5 pt-2">
+                  {specTasks.map((task) => {
+                    const isTaskDone = task.status === 'completed';
+                    const handleTaskAutopilot = (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      if (spec) {
+                        const taskContent = `# ${requirement.title}\n\n## Task\n${task.title}\n\n## Context\n${requirement.description}`;
+                        openConfigModal(spec.id, task.title, taskContent);
+                      }
+                    };
+                    return (
+                      <div
+                        key={task.id}
+                        className={cn(
+                          'flex items-center gap-2 px-2 py-1.5 rounded-md text-xs',
+                          isTaskDone ? 'bg-green-500/5 text-gray-500' : 'bg-white/[0.03] text-gray-300'
+                        )}
+                      >
+                        {isTaskDone
+                          ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-green-500" />
+                          : <Circle className="w-3.5 h-3.5 flex-shrink-0 text-gray-500" />
+                        }
+                        <span className={cn('flex-1 truncate', isTaskDone && 'line-through text-gray-600')}>
+                          {task.title}
+                        </span>
+                        {!isTaskDone && spec && (
+                          <button
+                            onClick={handleTaskAutopilot}
+                            disabled={!!isAutopilotRunning}
+                            className={cn(
+                              'flex-shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-all',
+                              isAutopilotRunning
+                                ? 'text-purple-400/50 cursor-wait'
+                                : 'text-gray-500 hover:bg-purple-500/20 hover:text-purple-400'
+                            )}
+                          >
+                            <Rocket className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {progress.status !== 'completed' && spec && (
             <div className="mt-2 flex items-center gap-2">
@@ -512,6 +622,7 @@ function DesignView({
           <DecisionCard
             key={dec.id}
             decision={dec}
+            spec={spec}
             progress={progress}
             onClick={() => spec && onOpenSpec(spec)}
             isSelected={isSelected(index)}
@@ -524,22 +635,46 @@ function DesignView({
 
 function DecisionCard({
   decision,
+  spec,
   progress,
   onClick,
   isSelected = false,
 }: {
   decision: DesignDecision;
+  spec?: Spec;
   progress: SpecProgress;
   onClick: () => void;
   isSelected?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const [tasksExpanded, setTasksExpanded] = useState(false);
 
   useEffect(() => {
     if (isSelected && cardRef.current) {
       cardRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }, [isSelected]);
+
+  const { openConfigModal, status: autopilotStatus, specId: autopilotSpecId } = useAutopilotStore();
+  const { specs: allSpecs, getSpecProgress, getTasksBySpec } = useSpecsStore();
+  const specTasks = spec ? getTasksBySpec(spec.id) : [];
+  const isAutopilotRunning = autopilotStatus === 'running' && autopilotSpecId === spec?.id;
+
+  const getDependencyStatus = useCallback((code: string): 'completed' | 'in_progress' | 'not_found' => {
+    const normalizedCode = code.trim().toLowerCase();
+    const matchingSpec = allSpecs.find(s => s.id.toLowerCase().startsWith(normalizedCode));
+    if (!matchingSpec) return 'not_found';
+    const p = getSpecProgress(matchingSpec.id);
+    return p.status === 'completed' ? 'completed' : p.status === 'in_progress' ? 'in_progress' : 'not_found';
+  }, [allSpecs, getSpecProgress]);
+
+  const handleAutopilotClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (spec) {
+      const content = `# ${decision.title}\n\n${decision.context}`;
+      openConfigModal(spec.id, decision.title, content);
+    }
+  };
 
   const statusColors = {
     proposed: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
@@ -583,9 +718,135 @@ function DecisionCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-400 line-clamp-2 break-words">{decision.context}</p>
+          <p className="text-xs text-gray-400 line-clamp-10 break-words whitespace-pre-line">
+            {decision.context.split('\n').map((line, lineIdx) => {
+              const depMatch = line.match(/^\*\*Depend[êe]ncias:\*\*\s*(.+)$/i);
+              if (depMatch) {
+                const deps = depMatch[1].split(',').map(d => d.trim());
+                return (
+                  <span key={lineIdx}>
+                    <strong className="font-bold text-gray-200">Dependências:</strong>{' '}
+                    {deps.map((dep, depIdx) => {
+                      const codeMatch = dep.match(/^(US-\d+|ADR-\d+|EPIC-\d+)/i);
+                      const code = codeMatch?.[1] || '';
+                      const status = code ? getDependencyStatus(code) : 'not_found';
+                      const icon = status === 'completed' ? '✅' : status === 'in_progress' ? '⏳' : '❌';
+                      return (
+                        <span key={depIdx}>
+                          {depIdx > 0 && ', '}
+                          <span title={status === 'completed' ? 'Concluída' : status === 'in_progress' ? 'Em andamento' : 'Não encontrada'}>
+                            {icon} {dep}
+                          </span>
+                        </span>
+                      );
+                    })}
+                    {lineIdx < decision.context.split('\n').length - 1 && '\n'}
+                  </span>
+                );
+              }
+              return (
+                <span key={lineIdx}>
+                  {line.split(/(\*\*[^*]+\*\*)/).map((part, i) =>
+                    part.startsWith('**') && part.endsWith('**')
+                      ? <strong key={i} className="font-bold text-gray-200">{part.slice(2, -2)}</strong>
+                      : part
+                  )}
+                  {lineIdx < decision.context.split('\n').length - 1 && '\n'}
+                </span>
+              );
+            })}
+          </p>
 
-          <ProgressBar progress={progress} />
+          {progress.total > 0 && (
+            <div className="mt-2">
+              <div className="flex items-center gap-1">
+                <div className="flex-1">
+                  <ProgressBar progress={progress} />
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setTasksExpanded(!tasksExpanded); }}
+                  className="flex-shrink-0 p-0.5 rounded hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-300"
+                  aria-label={tasksExpanded ? 'Collapse tasks' : 'Expand tasks'}
+                >
+                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', tasksExpanded && 'rotate-180')} />
+                </button>
+              </div>
+
+              {tasksExpanded && specTasks.length > 0 && (
+                <div className="mt-2 space-y-1 border-t border-white/5 pt-2">
+                  {specTasks.map((task) => {
+                    const isTaskDone = task.status === 'completed';
+                    const handleTaskAutopilot = (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      if (spec) {
+                        const taskContent = `# ${decision.title}\n\n## Task\n${task.title}\n\n## Context\n${decision.context}`;
+                        openConfigModal(spec.id, task.title, taskContent);
+                      }
+                    };
+                    return (
+                      <div
+                        key={task.id}
+                        className={cn(
+                          'flex items-center gap-2 px-2 py-1.5 rounded-md text-xs',
+                          isTaskDone ? 'bg-green-500/5 text-gray-500' : 'bg-white/[0.03] text-gray-300'
+                        )}
+                      >
+                        {isTaskDone
+                          ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-green-500" />
+                          : <Circle className="w-3.5 h-3.5 flex-shrink-0 text-gray-500" />
+                        }
+                        <span className={cn('flex-1 truncate', isTaskDone && 'line-through text-gray-600')}>
+                          {task.title}
+                        </span>
+                        {!isTaskDone && spec && (
+                          <button
+                            onClick={handleTaskAutopilot}
+                            disabled={!!isAutopilotRunning}
+                            className={cn(
+                              'flex-shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-all',
+                              isAutopilotRunning
+                                ? 'text-purple-400/50 cursor-wait'
+                                : 'text-gray-500 hover:bg-purple-500/20 hover:text-purple-400'
+                            )}
+                          >
+                            <Rocket className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {progress.status !== 'completed' && spec && (
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                onClick={handleAutopilotClick}
+                disabled={!!isAutopilotRunning}
+                aria-label={isAutopilotRunning ? 'Autopilot running' : 'Start Autopilot'}
+                className={cn(
+                  'flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-all',
+                  isAutopilotRunning
+                    ? 'bg-purple-500/20 text-purple-400 cursor-wait'
+                    : 'bg-white/10 text-gray-400 hover:bg-purple-500/20 hover:text-purple-400 opacity-0 group-hover:opacity-100'
+                )}
+              >
+                {isAutopilotRunning ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                    Running...
+                  </>
+                ) : (
+                  <>
+                    <Rocket className="w-3 h-3" aria-hidden="true" />
+                    Autopilot
+                  </>
+                )}
+              </button>
+            </div>
+          )}
 
           {decision.consequences.length > 0 && progress.total === 0 && (
             <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
