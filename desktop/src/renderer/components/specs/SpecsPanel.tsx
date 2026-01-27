@@ -423,7 +423,17 @@ function RequirementCard({
               // Check if this is a dependency line
               const depMatch = line.match(/^\*\*Depend[êe]ncias:\*\*\s*(.+)$/i);
               if (depMatch) {
-                const depsText = depMatch[1];
+                const depsText = depMatch[1].trim();
+                const isNone = /^nenhuma\b/i.test(depsText);
+                if (isNone) {
+                  return (
+                    <span key={lineIdx}>
+                      <strong className="font-bold text-gray-200">Dependências:</strong>{' '}
+                      <span title="Sem dependências">✅ Nenhuma</span>
+                      {lineIdx < requirement.description.split('\n').length - 1 && '\n'}
+                    </span>
+                  );
+                }
                 // Split dependencies by comma
                 const deps = depsText.split(',').map(d => d.trim());
                 return (
@@ -722,7 +732,18 @@ function DecisionCard({
             {decision.context.split('\n').map((line, lineIdx) => {
               const depMatch = line.match(/^\*\*Depend[êe]ncias:\*\*\s*(.+)$/i);
               if (depMatch) {
-                const deps = depMatch[1].split(',').map(d => d.trim());
+                const depsText = depMatch[1].trim();
+                const isNone = /^nenhuma\b/i.test(depsText);
+                if (isNone) {
+                  return (
+                    <span key={lineIdx}>
+                      <strong className="font-bold text-gray-200">Dependências:</strong>{' '}
+                      <span title="Sem dependências">✅ Nenhuma</span>
+                      {lineIdx < decision.context.split('\n').length - 1 && '\n'}
+                    </span>
+                  );
+                }
+                const deps = depsText.split(',').map(d => d.trim());
                 return (
                   <span key={lineIdx}>
                     <strong className="font-bold text-gray-200">Dependências:</strong>{' '}
