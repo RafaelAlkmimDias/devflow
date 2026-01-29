@@ -69,6 +69,9 @@ env/
 # Descomente a linha abaixo se NÃO quiser versionar snapshots:
 # docs/snapshots/*.json
 
+# Business docs (privado)
+docs/business/
+
 # DevFlow Development (não incluir no release)
 build-release.sh  # Script de build fica apenas no dev
 
