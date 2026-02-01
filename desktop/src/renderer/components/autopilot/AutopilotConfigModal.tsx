@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react';
-import { X, Rocket } from 'lucide-react';
+import { useState, useRef, useMemo } from 'react';
+import { X, Rocket, CheckCircle2, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useAutopilotStore,
   DEFAULT_CONFIG,
   type AgentId,
   type AutopilotConfig,
+  type SpecPhaseHistory,
 } from '@/lib/stores/autopilotStore';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 
@@ -26,13 +27,40 @@ export function AutopilotConfigModal({ projectPath }: AutopilotConfigModalProps)
     isConfigModalOpen,
     closeConfigModal,
     selectedSpecTitle,
+    selectedSpecId,
     startRun,
+    getCompletedPhasesForSpec,
+    clearHistoryForSpec,
   } = useAutopilotStore();
 
   const [config, setConfig] = useState<AutopilotConfig>(DEFAULT_CONFIG);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Get completed phases for this spec
+  const completedPhases = useMemo(() => {
+    if (!selectedSpecId) return {} as Record<AgentId, SpecPhaseHistory>;
+    return getCompletedPhasesForSpec(selectedSpecId);
+  }, [selectedSpecId, getCompletedPhasesForSpec]);
+
+  // Format date for display
+  const formatDate = (isoDate: string) => {
+    const date = new Date(isoDate);
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // Handle clearing history
+  const handleClearHistory = () => {
+    if (selectedSpecId) {
+      clearHistoryForSpec(selectedSpecId);
+    }
+  };
 
   // Focus trap for accessibility
   useFocusTrap(modalRef, isConfigModalOpen, {
@@ -128,57 +156,87 @@ export function AutopilotConfigModal({ projectPath }: AutopilotConfigModalProps)
 
           {/* Phases */}
           <div>
-            <h3 className="text-sm font-medium text-gray-300 mb-3">Phases to execute</h3>
-            <div className="space-y-2">
-              {AGENTS.map((agent) => (
-                <label
-                  key={agent.id}
-                  className={cn(
-                    'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
-                    config.phases.includes(agent.id)
-                      ? 'bg-purple-500/10 border-purple-500/30'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10'
-                  )}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-gray-300">Phases to execute</h3>
+              {Object.keys(completedPhases).length > 0 && (
+                <button
+                  onClick={handleClearHistory}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  title="Limpar histórico desta spec"
                 >
-                  <input
-                    type="checkbox"
-                    checked={config.phases.includes(agent.id)}
-                    onChange={() => togglePhase(agent.id)}
-                    className="sr-only"
-                  />
-                  <div
+                  <RotateCcw className="w-3 h-3" />
+                  Limpar histórico
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {AGENTS.map((agent) => {
+                const history = completedPhases[agent.id];
+                const wasCompleted = !!history;
+
+                return (
+                  <label
+                    key={agent.id}
                     className={cn(
-                      'w-5 h-5 rounded border-2 flex items-center justify-center transition-colors',
+                      'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
                       config.phases.includes(agent.id)
-                        ? 'bg-purple-500 border-purple-500'
-                        : 'border-gray-500'
+                        ? 'bg-purple-500/10 border-purple-500/30'
+                        : wasCompleted
+                        ? 'bg-green-500/5 border-green-500/20 hover:bg-green-500/10'
+                        : 'bg-white/5 border-white/10 hover:bg-white/10'
                     )}
                   >
-                    {config.phases.includes(agent.id) && (
-                      <svg
-                        className="w-3 h-3 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={3}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{agent.icon}</span>
-                      <span className="text-sm font-medium text-white">{agent.name}</span>
+                    <input
+                      type="checkbox"
+                      checked={config.phases.includes(agent.id)}
+                      onChange={() => togglePhase(agent.id)}
+                      className="sr-only"
+                    />
+                    <div
+                      className={cn(
+                        'w-5 h-5 rounded border-2 flex items-center justify-center transition-colors',
+                        config.phases.includes(agent.id)
+                          ? 'bg-purple-500 border-purple-500'
+                          : 'border-gray-500'
+                      )}
+                    >
+                      {config.phases.includes(agent.id) && (
+                        <svg
+                          className="w-3 h-3 text-white"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">{agent.description}</p>
-                  </div>
-                </label>
-              ))}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{agent.icon}</span>
+                        <span className="text-sm font-medium text-white">{agent.name}</span>
+                        {wasCompleted && (
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[10px] rounded">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Executado
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{agent.description}</p>
+                      {wasCompleted && history.completedAt && (
+                        <p className="text-[10px] text-green-400/70 mt-1">
+                          Última execução: {formatDate(history.completedAt)}
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           </div>
 

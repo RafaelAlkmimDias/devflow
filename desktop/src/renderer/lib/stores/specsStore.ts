@@ -27,6 +27,7 @@ interface SpecsState {
   setSelectedSpec: (id: string | null) => void;
   setActivePhase: (phase: SpecPhase) => void;
   updateTaskStatus: (taskId: string, status: Task['status']) => void;
+  updateTaskStatusWithPersist: (taskId: string, status: Task['status']) => Promise<boolean>;
   getSpecsByPhase: (phase: SpecPhase) => Spec[];
   getRequirementsBySpec: (specId: string) => Requirement[];
   getTasksBySpec: (specId: string) => Task[];
@@ -184,6 +185,45 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
           : t
       ),
     }));
+  },
+
+  updateTaskStatusWithPersist: async (taskId: string, status: Task['status']): Promise<boolean> => {
+    const { tasks } = get();
+    const task = tasks.find((t) => t.id === taskId);
+
+    if (!task || !task.filePath) {
+      console.error('Task not found or missing filePath:', taskId);
+      return false;
+    }
+
+    try {
+      // Update the file
+      const success = await api.updateTaskStatus(
+        task.filePath,
+        task.title,
+        status === 'completed'
+      );
+
+      if (success) {
+        // Update local state
+        set((state) => ({
+          tasks: state.tasks.map((t) =>
+            t.id === taskId
+              ? {
+                  ...t,
+                  status,
+                  completedAt: status === 'completed' ? new Date() : undefined,
+                }
+              : t
+          ),
+        }));
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Error persisting task status:', error);
+      return false;
+    }
   },
 
   getSpecsByPhase: (phase: SpecPhase) => {

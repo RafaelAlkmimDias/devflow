@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
-import type { DevFlowStatus, DevFlowSetupResult, Requirement, RequirementsStatus } from '../shared/types'
+import type { DevFlowStatus, DevFlowSetupResult, Requirement, RequirementsStatus, AutopilotStreamData } from '../shared/types'
 
 // Type definitions for the exposed API
 export interface ElectronAPI {
@@ -39,6 +39,7 @@ export interface ElectronAPI {
 
   // Specs
   parseSpecs: (specsPath: string) => Promise<Spec[]>
+  updateTaskStatus: (filePath: string, taskText: string, completed: boolean) => Promise<boolean>
 
   // Search
   searchCode: (rootPath: string, query: string, options?: SearchOptions) => Promise<SearchResult[]>
@@ -46,6 +47,9 @@ export interface ElectronAPI {
 
   // Autopilot
   executeAgent: (agent: string, prompt: string, cwd: string) => Promise<string>
+  respondToAgent: (agent: string, response: string) => Promise<void>
+  cancelAgent: (agent: string) => Promise<void>
+  onAutopilotStream: (callback: (data: AutopilotStreamData) => void) => () => void
 
   // DevFlow
   checkDevFlow: (projectPath: string) => Promise<DevFlowStatus>
@@ -182,6 +186,7 @@ const api: ElectronAPI = {
 
   // Specs
   parseSpecs: (specsPath) => ipcRenderer.invoke('specs:parse', specsPath),
+  updateTaskStatus: (filePath, taskText, completed) => ipcRenderer.invoke('specs:updateTaskStatus', { filePath, taskText, completed }),
 
   // Search
   searchCode: (rootPath, query, options) => ipcRenderer.invoke('search:code', rootPath, query, options),
@@ -189,6 +194,13 @@ const api: ElectronAPI = {
 
   // Autopilot
   executeAgent: (agent, prompt, cwd) => ipcRenderer.invoke('autopilot:execute', agent, prompt, cwd),
+  respondToAgent: (agent, response) => ipcRenderer.invoke('autopilot:respond', agent, response),
+  cancelAgent: (agent) => ipcRenderer.invoke('autopilot:cancel', agent),
+  onAutopilotStream: (callback) => {
+    const handler = (_: IpcRendererEvent, data: AutopilotStreamData) => callback(data)
+    ipcRenderer.on('autopilot:stream', handler)
+    return () => ipcRenderer.removeListener('autopilot:stream', handler)
+  },
 
   // DevFlow
   checkDevFlow: (projectPath) => ipcRenderer.invoke('devflow:check', projectPath),

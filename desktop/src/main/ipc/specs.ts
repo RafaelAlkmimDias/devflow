@@ -5,6 +5,13 @@ import path from 'path'
 import matter from 'gray-matter'
 import { Spec } from '../../shared/types'
 
+// Interface for task update
+interface TaskUpdateParams {
+  filePath: string
+  taskText: string
+  completed: boolean
+}
+
 // Directories where specs/stories/ADRs can be found (relative to project root)
 const SPEC_DIRECTORIES = [
   'docs/planning/stories',      // User stories
@@ -146,5 +153,44 @@ export function registerSpecsHandlers(): void {
     })
 
     return specs
+  })
+
+  // Update task status in markdown file
+  ipcMain.handle('specs:updateTaskStatus', async (_, params: TaskUpdateParams): Promise<boolean> => {
+    try {
+      const { filePath, taskText, completed } = params
+
+      if (!existsSync(filePath)) {
+        console.error(`File not found: ${filePath}`)
+        return false
+      }
+
+      // Read the file
+      let content = await fs.readFile(filePath, 'utf-8')
+
+      // Escape special regex characters in task text
+      const escapedTaskText = taskText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+      // Match the checkbox line with this task text
+      // Pattern: - [ ] or - [x] or - [X] followed by the task text
+      const uncheckedPattern = new RegExp(`([-*]\\s*)\\[[ ]\\](\\s*${escapedTaskText})`, 'g')
+      const checkedPattern = new RegExp(`([-*]\\s*)\\[[xX]\\](\\s*${escapedTaskText})`, 'g')
+
+      if (completed) {
+        // Mark as completed: change [ ] to [x]
+        content = content.replace(uncheckedPattern, '$1[x]$2')
+      } else {
+        // Mark as incomplete: change [x] or [X] to [ ]
+        content = content.replace(checkedPattern, '$1[ ]$2')
+      }
+
+      // Write back to file
+      await fs.writeFile(filePath, content, 'utf-8')
+
+      return true
+    } catch (error) {
+      console.error('[specs:updateTaskStatus] Error updating task status:', error)
+      return false
+    }
   })
 }

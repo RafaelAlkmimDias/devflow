@@ -44,6 +44,8 @@ interface AutopilotState {
   error: string | null;
   specId: string | null;
   specTitle: string | null;
+  specContent: string | null;
+  projectPath: string | null;
 
   // Config modal
   isConfigModalOpen: boolean;
@@ -55,6 +57,7 @@ interface AutopilotState {
   openConfigModal: (specId: string, specTitle: string, specContent: string) => void;
   closeConfigModal: () => void;
   startRun: (config: AutopilotConfig, projectPath: string) => Promise<void>;
+  continuePhase: (phaseIndex: number, userResponse: string) => Promise<void>;
   reset: () => void;
 }
 
@@ -67,6 +70,8 @@ export const useAutopilotStore = create<AutopilotState>()(
       error: null,
       specId: null,
       specTitle: null,
+      specContent: null,
+      projectPath: null,
       isConfigModalOpen: false,
       selectedSpecId: null,
       selectedSpecTitle: null,
@@ -114,6 +119,8 @@ export const useAutopilotStore = create<AutopilotState>()(
           error: null,
           specId: selectedSpecId,
           specTitle: selectedSpecTitle,
+          specContent: selectedSpecContent,
+          projectPath,
           isConfigModalOpen: false,
         });
 
@@ -189,6 +196,99 @@ export const useAutopilotStore = create<AutopilotState>()(
         set({ status: 'completed' });
       },
 
+      continuePhase: async (phaseIndex: number, userResponse: string) => {
+        const { phases, specContent, projectPath, status } = get();
+
+        if (!specContent || !projectPath) {
+          throw new Error('No spec content or project path');
+        }
+
+        if (status === 'running') {
+          throw new Error('Cannot continue while another phase is running');
+        }
+
+        const phase = phases[phaseIndex];
+        if (!phase) {
+          throw new Error('Phase not found');
+        }
+
+        // Set status to running and update the phase
+        set({
+          status: 'running',
+          currentPhaseIndex: phaseIndex,
+          error: null,
+          phases: phases.map((p, idx) =>
+            idx === phaseIndex ? { ...p, status: 'running' } : p
+          ),
+        });
+
+        const startTime = Date.now();
+
+        try {
+          // Build previous outputs from phases before this one
+          const previousOutputs: string[] = phases
+            .filter((p, idx) => idx < phaseIndex && p.status === 'completed' && p.output)
+            .map(p => p.output!);
+
+          // Build continuation prompt
+          const continuationPrompt = `Continue the analysis based on user feedback:
+
+YOUR PREVIOUS OUTPUT:
+${phase.output || ''}
+
+USER RESPONSE:
+${userResponse}
+
+Please continue your analysis incorporating the user's feedback.`;
+
+          const response = await fetch('/api/autopilot/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              agent: phase.agent,
+              specContent: specContent + '\n\n' + continuationPrompt,
+              previousOutputs,
+              projectPath,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errorData.error || `Continuation failed`);
+          }
+
+          const result = await response.json();
+          const duration = Date.now() - startTime;
+
+          // Append new output to existing output
+          const combinedOutput = `${phase.output || ''}\n\n---\n[Sua resposta: ${userResponse}]\n---\n\n${result.output || ''}`;
+
+          // Update phase as completed with combined output
+          set((state) => ({
+            status: 'completed',
+            phases: state.phases.map((p, idx) =>
+              idx === phaseIndex
+                ? { ...p, status: 'completed', output: combinedOutput, duration: (p.duration || 0) + duration }
+                : p
+            ),
+          }));
+
+        } catch (error) {
+          const duration = Date.now() - startTime;
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+          set((state) => ({
+            status: 'failed',
+            error: errorMessage,
+            phases: state.phases.map((p, idx) =>
+              idx === phaseIndex
+                ? { ...p, status: 'failed', error: errorMessage, duration: (p.duration || 0) + duration }
+                : p
+            ),
+          }));
+        }
+      },
+
       reset: () => {
         set({
           status: 'idle',
@@ -197,6 +297,8 @@ export const useAutopilotStore = create<AutopilotState>()(
           error: null,
           specId: null,
           specTitle: null,
+          specContent: null,
+          projectPath: null,
           isConfigModalOpen: false,
           selectedSpecId: null,
           selectedSpecTitle: null,
@@ -211,6 +313,8 @@ export const useAutopilotStore = create<AutopilotState>()(
         phases: state.phases,
         specId: state.specId,
         specTitle: state.specTitle,
+        specContent: state.specContent,
+        projectPath: state.projectPath,
       }),
     }
   )

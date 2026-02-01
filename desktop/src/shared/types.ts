@@ -100,6 +100,13 @@ export interface AgentExecution {
   error?: string
 }
 
+// Autopilot streaming types
+export interface AutopilotStreamData {
+  agent: string
+  type: 'start' | 'stdout' | 'stderr' | 'question' | 'response-sent'
+  data?: string
+}
+
 // DevFlow types
 export interface DevFlowStatus {
   isDevFlowProject: boolean

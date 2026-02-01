@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   CheckCircle2,
   Circle,
@@ -14,6 +14,10 @@ import {
   Maximize2,
   Minimize2,
   SkipForward,
+  Copy,
+  Check,
+  MessageCircle,
+  Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -31,11 +35,20 @@ const AGENT_INFO: Record<AgentId, { icon: string; color: string; name: string }>
 };
 
 export function AutopilotPanel() {
-  const { status, phases, specTitle, error, reset, currentPhaseIndex } = useAutopilotStore();
-  const [startTime] = useState(() => Date.now());
+  const { status, phases, specTitle, error, reset, continuePhase, currentPhaseIndex } = useAutopilotStore();
+  const [startTime, setStartTime] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
   const [expandedPhase, setExpandedPhase] = useState<number | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  // Reset timer when a new run starts
+  useEffect(() => {
+    if (status === 'running' && currentPhaseIndex === 0) {
+      setStartTime(Date.now());
+      setElapsed(0);
+    }
+  }, [status, currentPhaseIndex]);
 
   // Update elapsed time
   useEffect(() => {
@@ -78,7 +91,10 @@ export function AutopilotPanel() {
     <div
       className={cn(
         'fixed bg-[#12121a] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 transition-all duration-300 flex flex-col',
-        isMaximized ? 'inset-4 w-auto h-auto' : 'bottom-4 right-4 w-[480px]'
+        isMaximized
+          ? 'top-4 bottom-4 right-4 w-[600px]'
+          : 'bottom-4 right-4',
+        !isMaximized && (isMinimized ? 'w-auto min-w-[320px]' : 'w-[480px]')
       )}
     >
       {/* Header */}
@@ -103,17 +119,55 @@ export function AutopilotPanel() {
           )}
         </div>
         <div className="flex items-center gap-1">
+          {/* Minimized: show progress inline */}
+          {isMinimized && (
+            <div className="flex items-center gap-2 mr-2">
+              <span className="text-xs text-gray-400">{completedPhases}/{phases.length}</span>
+              <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-all duration-300',
+                    isCompleted ? 'bg-green-500' : isFailed ? 'bg-red-500' : 'bg-purple-500'
+                  )}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <span className="text-xs text-purple-400 font-medium">{progress}%</span>
+            </div>
+          )}
+          {/* Minimize/Expand button */}
           <button
-            onClick={() => setIsMaximized(!isMaximized)}
+            onClick={() => {
+              if (isMinimized) {
+                setIsMinimized(false);
+              } else {
+                setIsMinimized(true);
+                setIsMaximized(false);
+              }
+            }}
             className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
-            title={isMaximized ? 'Minimize' : 'Maximize'}
+            title={isMinimized ? 'Expandir' : 'Minimizar'}
           >
-            {isMaximized ? (
-              <Minimize2 className="w-4 h-4" />
+            {isMinimized ? (
+              <ChevronUp className="w-4 h-4" />
             ) : (
-              <Maximize2 className="w-4 h-4" />
+              <ChevronDown className="w-4 h-4" />
             )}
           </button>
+          {/* Maximize button - only show when not minimized */}
+          {!isMinimized && (
+            <button
+              onClick={() => setIsMaximized(!isMaximized)}
+              className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+              title={isMaximized ? 'Restaurar' : 'Maximizar'}
+            >
+              {isMaximized ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
+              )}
+            </button>
+          )}
           {isDone && (
             <button
               onClick={reset}
@@ -126,81 +180,142 @@ export function AutopilotPanel() {
         </div>
       </div>
 
-      {/* Spec Title */}
-      <div className="px-4 py-2 border-b border-white/5">
-        <p className="text-xs text-gray-400 truncate">{specTitle}</p>
-      </div>
+      {/* Spec Title - hidden when minimized */}
+      {!isMinimized && (
+        <div className="px-4 py-2 border-b border-white/5">
+          <p className="text-xs text-gray-400 truncate">{specTitle}</p>
+        </div>
+      )}
 
-      {/* Error message */}
-      {error && (
+      {/* Error message - hidden when minimized */}
+      {error && !isMinimized && (
         <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20">
           <p className="text-xs text-red-400">{error}</p>
         </div>
       )}
 
-      {/* Phases */}
-      <div className={cn('overflow-y-auto', isMaximized ? 'flex-1' : 'max-h-80')}>
-        {phases.map((phase, index) => (
-          <PhaseItem
-            key={`${phase.agent}-${index}`}
-            phase={phase}
-            index={index}
-            isCurrent={index === currentPhaseIndex}
-            isExpanded={expandedPhase === index || isMaximized}
-            onToggle={() => setExpandedPhase(expandedPhase === index ? null : index)}
-            isMaximized={isMaximized}
-            formatDuration={formatDuration}
-          />
-        ))}
-      </div>
+      {/* Phases - hidden when minimized */}
+      {!isMinimized && (
+        <div className={cn('overflow-y-auto', isMaximized ? 'flex-1' : 'max-h-80')}>
+          {phases.map((phase, index) => (
+            <PhaseItem
+              key={`${phase.agent}-${index}`}
+              phase={phase}
+              phaseIndex={index}
+              isCurrent={index === currentPhaseIndex}
+              isExpanded={expandedPhase === index || isMaximized}
+              onToggle={() => setExpandedPhase(expandedPhase === index ? null : index)}
+              isMaximized={isMaximized}
+              formatDuration={formatDuration}
+              onContinue={continuePhase}
+              isRunning={status === 'running'}
+            />
+          ))}
+        </div>
+      )}
 
-      {/* Footer Stats */}
-      <div className="px-4 py-3 border-t border-white/10 bg-white/5">
-        <div className="flex items-center justify-between text-xs text-gray-400">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {formatTime(elapsed)}
-            </span>
-            <span>
-              {completedPhases}/{phases.length} phases
-            </span>
+      {/* Footer Stats - hidden when minimized */}
+      {!isMinimized && (
+        <div className="px-4 py-3 border-t border-white/10 bg-white/5">
+          <div className="flex items-center justify-between text-xs text-gray-400">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {formatTime(elapsed)}
+              </span>
+              <span>
+                {completedPhases}/{phases.length} phases
+              </span>
+            </div>
+            <span className="text-purple-400 font-medium">{progress}%</span>
           </div>
-          <span className="text-purple-400 font-medium">{progress}%</span>
+          {/* Progress bar */}
+          <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className={cn(
+                'h-full rounded-full transition-all duration-300',
+                isCompleted ? 'bg-green-500' : isFailed ? 'bg-red-500' : 'bg-purple-500'
+              )}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
-        {/* Progress bar */}
-        <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div
-            className={cn(
-              'h-full rounded-full transition-all duration-300',
-              isCompleted ? 'bg-green-500' : isFailed ? 'bg-red-500' : 'bg-purple-500'
-            )}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
 function PhaseItem({
   phase,
-  index,
+  phaseIndex,
   isCurrent,
   isExpanded,
   onToggle,
   isMaximized,
   formatDuration,
+  onContinue,
+  isRunning,
 }: {
   phase: PhaseResult;
-  index: number;
+  phaseIndex: number;
   isCurrent: boolean;
   isExpanded: boolean;
   onToggle: () => void;
   isMaximized?: boolean;
   formatDuration: (ms?: number) => string;
+  onContinue: (phaseIndex: number, userResponse: string) => Promise<void>;
+  isRunning: boolean;
 }) {
   const agent = AGENT_INFO[phase.agent];
+  const [copied, setCopied] = useState(false);
+  const [showResponseInput, setShowResponseInput] = useState(false);
+  const [responseText, setResponseText] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const responseInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const hasOutput = phase.output && phase.output.length > 0;
+  const canRespond = phase.status === 'completed' && hasOutput && !isRunning;
+
+  const handleCopyOutput = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!phase.output) return;
+    try {
+      await navigator.clipboard.writeText(phase.output);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleToggleResponse = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowResponseInput(!showResponseInput);
+    if (!showResponseInput) {
+      setTimeout(() => responseInputRef.current?.focus(), 100);
+    }
+  };
+
+  const handleSendContinuation = async () => {
+    if (!responseText.trim() || isSending) return;
+    setIsSending(true);
+    try {
+      await onContinue(phaseIndex, responseText.trim());
+      setResponseText('');
+      setShowResponseInput(false);
+    } catch (err) {
+      console.error('Failed to continue phase:', err);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSendContinuation();
+    }
+  };
 
   const getStatusIcon = () => {
     switch (phase.status) {
@@ -216,8 +331,6 @@ function PhaseItem({
         return <Circle className="w-4 h-4 text-gray-500" />;
     }
   };
-
-  const hasOutput = phase.output && phase.output.length > 0;
 
   return (
     <div
@@ -257,6 +370,43 @@ function PhaseItem({
       {/* Expanded output */}
       {isExpanded && hasOutput && (
         <div className="px-4 py-3 bg-black/20 border-t border-white/5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wider">Output</span>
+            <div className="flex items-center gap-2">
+              {canRespond && (
+                <button
+                  onClick={handleToggleResponse}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-colors",
+                    showResponseInput
+                      ? "bg-purple-500/20 text-purple-400"
+                      : "text-gray-400 hover:text-white hover:bg-white/10"
+                  )}
+                  title="Responder ao agente"
+                >
+                  <MessageCircle className="w-3 h-3" />
+                  <span>Responder</span>
+                </button>
+              )}
+              <button
+                onClick={handleCopyOutput}
+                className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                title={copied ? 'Copiado!' : 'Copiar output'}
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3 text-green-400" />
+                    <span className="text-green-400">Copiado</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    <span>Copiar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
           <pre
             className={cn(
               'text-xs text-gray-400 whitespace-pre-wrap overflow-y-auto font-mono',
@@ -265,6 +415,55 @@ function PhaseItem({
           >
             {phase.output}
           </pre>
+
+          {/* Response input for continuing conversation */}
+          {showResponseInput && canRespond && (
+            <div className="mt-3 pt-3 border-t border-white/10">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageCircle className="w-4 h-4 text-purple-400" />
+                <span className="text-xs text-purple-400 font-medium">Continuar conversa com o agente</span>
+              </div>
+              <textarea
+                ref={responseInputRef}
+                value={responseText}
+                onChange={(e) => setResponseText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Digite sua resposta... (Cmd/Ctrl + Enter para enviar)"
+                className="w-full px-3 py-2 bg-black/40 border border-purple-500/30 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 resize-none"
+                rows={3}
+                disabled={isSending}
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    setShowResponseInput(false);
+                    setResponseText('');
+                  }}
+                  className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+                  disabled={isSending}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSendContinuation}
+                  disabled={!responseText.trim() || isSending}
+                  className="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 text-xs rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  {isSending ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3 h-3" />
+                      Enviar
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

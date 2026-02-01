@@ -17,6 +17,7 @@ import {
   X,
   Loader2,
   Rocket,
+  Eye,
 } from 'lucide-react';
 import type { SpecPhase, Spec, Requirement, DesignDecision, Task } from '@/lib/types';
 import { useSpecsStore, type SpecProgress } from '@/lib/stores/specsStore';
@@ -617,6 +618,33 @@ function TasksView({
   onCreateNew: () => void;
 }) {
   const { updateTaskStatus } = useSpecsStore();
+  const { openFile } = useFileStore();
+  const [confirmModal, setConfirmModal] = useState<{ task: Task; newStatus: Task['status'] } | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleToggleRequest = (task: Task, currentStatus: Task['status']) => {
+    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+    // Show confirmation modal
+    setConfirmModal({ task, newStatus });
+  };
+
+  const handleConfirmToggle = async () => {
+    if (!confirmModal) return;
+
+    setIsUpdating(true);
+    try {
+      await updateTaskStatus(confirmModal.task.id, confirmModal.newStatus);
+    } catch (error) {
+      console.error('Failed to update task status:', error);
+    } finally {
+      setIsUpdating(false);
+      setConfirmModal(null);
+    }
+  };
+
+  const handleViewFile = (filePath: string) => {
+    openFile(filePath);
+  };
 
   if (tasks.length === 0) {
     return (
@@ -638,40 +666,57 @@ function TasksView({
   };
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {groupedTasks.in_progress.length > 0 && (
-        <TaskGroup
-          title="In Progress"
-          tasks={groupedTasks.in_progress}
-          color="text-blue-400"
-          onToggle={(id, current) => updateTaskStatus(id, current === 'completed' ? 'pending' : 'completed')}
+    <>
+      <div className="space-y-3 sm:space-y-4">
+        {groupedTasks.in_progress.length > 0 && (
+          <TaskGroup
+            title="In Progress"
+            tasks={groupedTasks.in_progress}
+            color="text-blue-400"
+            onToggle={handleToggleRequest}
+            onViewFile={handleViewFile}
+          />
+        )}
+        {groupedTasks.pending.length > 0 && (
+          <TaskGroup
+            title="Pending"
+            tasks={groupedTasks.pending}
+            color="text-gray-400"
+            onToggle={handleToggleRequest}
+            onViewFile={handleViewFile}
+          />
+        )}
+        {groupedTasks.blocked.length > 0 && (
+          <TaskGroup
+            title="Blocked"
+            tasks={groupedTasks.blocked}
+            color="text-red-400"
+            onToggle={handleToggleRequest}
+            onViewFile={handleViewFile}
+          />
+        )}
+        {groupedTasks.completed.length > 0 && (
+          <TaskGroup
+            title="Completed"
+            tasks={groupedTasks.completed}
+            color="text-green-400"
+            onToggle={handleToggleRequest}
+            onViewFile={handleViewFile}
+          />
+        )}
+      </div>
+
+      {/* Confirmation Modal */}
+      {confirmModal && (
+        <ConfirmTaskModal
+          task={confirmModal.task}
+          newStatus={confirmModal.newStatus}
+          isUpdating={isUpdating}
+          onConfirm={handleConfirmToggle}
+          onCancel={() => setConfirmModal(null)}
         />
       )}
-      {groupedTasks.pending.length > 0 && (
-        <TaskGroup
-          title="Pending"
-          tasks={groupedTasks.pending}
-          color="text-gray-400"
-          onToggle={(id, current) => updateTaskStatus(id, current === 'completed' ? 'pending' : 'completed')}
-        />
-      )}
-      {groupedTasks.blocked.length > 0 && (
-        <TaskGroup
-          title="Blocked"
-          tasks={groupedTasks.blocked}
-          color="text-red-400"
-          onToggle={(id, current) => updateTaskStatus(id, current === 'completed' ? 'pending' : 'completed')}
-        />
-      )}
-      {groupedTasks.completed.length > 0 && (
-        <TaskGroup
-          title="Completed"
-          tasks={groupedTasks.completed}
-          color="text-green-400"
-          onToggle={(id, current) => updateTaskStatus(id, current === 'completed' ? 'pending' : 'completed')}
-        />
-      )}
-    </div>
+    </>
   );
 }
 
@@ -680,11 +725,13 @@ function TaskGroup({
   tasks,
   color,
   onToggle,
+  onViewFile,
 }: {
   title: string;
   tasks: Task[];
   color: string;
-  onToggle: (id: string, currentStatus: Task['status']) => void;
+  onToggle: (task: Task, currentStatus: Task['status']) => void;
+  onViewFile: (filePath: string) => void;
 }) {
   return (
     <div>
@@ -697,7 +744,8 @@ function TaskGroup({
           <TaskCard
             key={task.id}
             task={task}
-            onToggle={onToggle}
+            onToggle={() => onToggle(task, task.status)}
+            onViewFile={onViewFile}
           />
         ))}
       </div>
@@ -708,9 +756,11 @@ function TaskGroup({
 function TaskCard({
   task,
   onToggle,
+  onViewFile,
 }: {
   task: Task;
-  onToggle: (id: string, currentStatus: Task['status']) => void;
+  onToggle: () => void;
+  onViewFile: (filePath: string) => void;
 }) {
   const priorityDots = {
     low: 'bg-gray-400',
@@ -740,6 +790,12 @@ function TaskCard({
     return 'bg-white/5 border-white/10 hover:border-white/20';
   };
 
+  const handleViewFile = () => {
+    if (task.filePath) {
+      onViewFile(task.filePath);
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -749,8 +805,9 @@ function TaskCard({
     >
       <div className="flex items-start gap-2 sm:gap-3">
         <button
-          onClick={() => onToggle(task.id, task.status)}
+          onClick={onToggle}
           className="mt-0.5 flex-shrink-0"
+          title={isCompleted ? 'Marcar como pendente' : 'Marcar como concluído'}
         >
           {isCompleted ? (
             <CheckCircle2 className="w-4 h-4 text-green-400" />
@@ -808,6 +865,114 @@ function TaskCard({
               </span>
             )}
           </div>
+        </div>
+        {/* View file button */}
+        {task.filePath && (
+          <button
+            onClick={handleViewFile}
+            className="flex-shrink-0 p-1.5 hover:bg-white/10 rounded-lg transition-colors text-gray-500 hover:text-white opacity-0 group-hover:opacity-100"
+            title="Ver arquivo markdown"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Confirmation Modal for Task Status Change
+function ConfirmTaskModal({
+  task,
+  newStatus,
+  isUpdating,
+  onConfirm,
+  onCancel,
+}: {
+  task: Task;
+  newStatus: Task['status'];
+  isUpdating: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const isMarkingComplete = newStatus === 'completed';
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-sm bg-[#12121a] border border-white/10 rounded-xl shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <h3 className="font-semibold text-white text-sm">
+            {isMarkingComplete ? 'Confirmar Conclusão' : 'Reverter Conclusão'}
+          </h3>
+          <button
+            onClick={onCancel}
+            disabled={isUpdating}
+            className="p-1 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white disabled:opacity-50"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4">
+          <div className="flex items-start gap-3 mb-4">
+            {isMarkingComplete ? (
+              <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+            ) : (
+              <Circle className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+            )}
+            <div>
+              <p className="text-sm text-white font-medium mb-1">{task.title}</p>
+              <p className="text-xs text-gray-400">
+                {isMarkingComplete
+                  ? 'Esta tarefa será marcada como concluída. Esta ação será salva no arquivo de spec.'
+                  : 'Esta tarefa será marcada como pendente novamente. Esta ação será salva no arquivo de spec.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Info box */}
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
+            <p className="text-xs text-blue-400">
+              {isMarkingComplete
+                ? 'A validação manual será persistida no arquivo markdown correspondente.'
+                : 'O status será revertido no arquivo markdown correspondente.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-white/10">
+          <button
+            onClick={onCancel}
+            disabled={isUpdating}
+            className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isUpdating}
+            className={cn(
+              'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5',
+              isMarkingComplete
+                ? 'bg-green-600 hover:bg-green-500 text-white'
+                : 'bg-gray-600 hover:bg-gray-500 text-white'
+            )}
+          >
+            {isUpdating ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              <>
+                {isMarkingComplete ? <CheckCircle2 className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
+                {isMarkingComplete ? 'Confirmar Conclusão' : 'Reverter Status'}
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
