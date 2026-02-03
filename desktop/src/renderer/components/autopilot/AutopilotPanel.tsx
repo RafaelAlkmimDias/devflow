@@ -37,7 +37,23 @@ const AGENT_INFO: Record<AgentId, { icon: string; color: string; name: string }>
 };
 
 export function AutopilotPanel() {
-  const { status, phases, specTitle, error, reset, resumeRun, continuePhase, runNextAgent, getNextAgent, skipToNextAgent, currentPhaseIndex, liveLog, appendLog, clearLog } = useAutopilotStore();
+  const store = useAutopilotStore();
+
+  // Defensive: ensure all required properties exist
+  const status = store.status ?? 'idle';
+  const phases = store.phases ?? [];
+  const specTitle = store.specTitle ?? '';
+  const error = store.error;
+  const reset = store.reset;
+  const resumeRun = store.resumeRun;
+  const continuePhase = store.continuePhase;
+  const runNextAgent = store.runNextAgent;
+  const getNextAgent = store.getNextAgent;
+  const skipToNextAgent = store.skipToNextAgent;
+  const currentPhaseIndex = store.currentPhaseIndex ?? -1;
+  const liveLog = store.liveLog ?? '';
+  const appendLog = store.appendLog;
+  const clearLog = store.clearLog;
   const [startTime, setStartTime] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
   const [expandedPhase, setExpandedPhase] = useState<number | null>(null);
@@ -147,7 +163,7 @@ export function AutopilotPanel() {
   if (status === 'idle' || phases.length === 0) return null;
 
   const completedPhases = phases.filter((p) => p.status === 'completed').length;
-  const progress = Math.round((completedPhases / phases.length) * 100);
+  const progress = phases.length > 0 ? Math.round((completedPhases / phases.length) * 100) : 0;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -173,7 +189,7 @@ export function AutopilotPanel() {
   const isDone = isCompleted || isFailed || isInterrupted;
 
   // Check if there's a next agent to run
-  const nextAgent = getNextAgent();
+  const nextAgent = typeof getNextAgent === 'function' ? getNextAgent() : null;
   const nextAgentInfo = nextAgent ? DEFAULT_PHASES.find(p => p.id === nextAgent) : null;
   const canContinueToNext = isCompleted && nextAgent !== null;
 
@@ -496,7 +512,14 @@ export function AutopilotPanel() {
             <button
               onClick={() => {
                 // Expand the last completed phase to show the response input
-                const lastCompletedIndex = phases.findIndex(p => p.status === 'completed' && phases.filter((pp, i) => i > phases.indexOf(p) && pp.status === 'completed').length === 0);
+                // Find the last completed phase by iterating backwards
+                let lastCompletedIndex = -1;
+                for (let i = phases.length - 1; i >= 0; i--) {
+                  if (phases[i].status === 'completed') {
+                    lastCompletedIndex = i;
+                    break;
+                  }
+                }
                 if (lastCompletedIndex >= 0) {
                   setExpandedPhase(lastCompletedIndex);
                 }

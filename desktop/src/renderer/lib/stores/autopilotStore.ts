@@ -423,7 +423,7 @@ export const useAutopilotStore = create<AutopilotState>()(
       },
 
       continuePhase: async (phaseIndex: number, userResponse: string) => {
-        const { phases, specContent, projectPath, status, specId } = get();
+        const { phases, specContent, projectPath, status, specId, pendingPhasesConfig } = get();
 
         if (!specContent || !projectPath) {
           throw new Error('No spec content or project path');
@@ -472,6 +472,9 @@ export const useAutopilotStore = create<AutopilotState>()(
           // Append new output to existing output
           const combinedOutput = `${phase.output || ''}\n\n---\n[Sua resposta: ${userResponse}]\n---\n\n${newOutput || ''}`;
 
+          // Check if new output ends with a question
+          const hasQuestion = outputEndsWithQuestion(newOutput || '');
+
           // Update phase as completed with combined output and save to history
           set((state) => {
             const newHistory = { ...state.completedPhasesBySpec };
@@ -486,7 +489,6 @@ export const useAutopilotStore = create<AutopilotState>()(
             }
 
             return {
-              status: 'completed',
               phases: state.phases.map((p, idx) =>
                 idx === phaseIndex
                   ? { ...p, status: 'completed', output: combinedOutput, duration: (p.duration || 0) + duration }
@@ -495,6 +497,29 @@ export const useAutopilotStore = create<AutopilotState>()(
               completedPhasesBySpec: newHistory,
             };
           });
+
+          // If output ends with question, pause again
+          if (hasQuestion && pendingPhasesConfig) {
+            set({ status: 'awaiting_input' });
+            return;
+          }
+
+          // If there are more phases to run in pendingPhasesConfig, continue automatically
+          if (pendingPhasesConfig) {
+            const currentPhases = get().phases;
+            const completedCount = currentPhases.filter(p => p.status === 'completed').length;
+            const nextPhaseIndex = completedCount;
+
+            if (nextPhaseIndex < pendingPhasesConfig.phases.length) {
+              // Continue to next phase automatically
+              console.log('[Autopilot] Continuing to next agent automatically...');
+              await get().skipToNextAgent();
+              return;
+            }
+          }
+
+          // All phases completed or no pending config
+          set({ status: 'completed', pendingPhasesConfig: null });
 
         } catch (error) {
           const duration = Date.now() - startTime;
@@ -543,11 +568,20 @@ export const useAutopilotStore = create<AutopilotState>()(
 
       getCompletedPhasesForSpec: (specId: string) => {
         const { completedPhasesBySpec } = get();
-        return completedPhasesBySpec[specId] || {};
+        // Defensive: ensure completedPhasesBySpec is an object
+        if (!completedPhasesBySpec || typeof completedPhasesBySpec !== 'object') {
+          return {} as Record<AgentId, SpecPhaseHistory>;
+        }
+        return completedPhasesBySpec[specId] || ({} as Record<AgentId, SpecPhaseHistory>);
       },
 
       getNextAgent: () => {
         const { phases } = get();
+
+        // Defensive: ensure phases is an array
+        if (!phases || !Array.isArray(phases)) {
+          return 'strategist';
+        }
 
         // Get the last completed agent from the current run
         const completedAgents = phases
@@ -830,11 +864,20 @@ export const useAutopilotStore = create<AutopilotState>()(
             state.status = 'interrupted';
             state.error = 'Interrupted by app restart - click Resume to continue';
           }
-          state.phases = state.phases.map(p =>
-            p.status === 'running'
-              ? { ...p, status: 'failed' as PhaseStatus, error: 'Interrupted by app restart' }
-              : p
-          );
+          // Ensure phases is always an array (defensive check)
+          if (!state.phases || !Array.isArray(state.phases)) {
+            state.phases = [];
+          } else {
+            state.phases = state.phases.map(p =>
+              p.status === 'running'
+                ? { ...p, status: 'failed' as PhaseStatus, error: 'Interrupted by app restart' }
+                : p
+            );
+          }
+          // Ensure completedPhasesBySpec is always an object
+          if (!state.completedPhasesBySpec || typeof state.completedPhasesBySpec !== 'object') {
+            state.completedPhasesBySpec = {};
+          }
         }
       },
     }

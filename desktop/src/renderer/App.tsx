@@ -31,6 +31,7 @@ import { DashboardPanel } from '@/components/dashboard/DashboardPanel';
 import { SpecsPanel } from '@/components/specs/SpecsPanel';
 import { AutopilotPanel } from '@/components/autopilot/AutopilotPanel';
 import { AutopilotConfigModal } from '@/components/autopilot/AutopilotConfigModal';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 // Project Selector Component
 function ProjectSelector({
@@ -304,9 +305,13 @@ function IDE({ projectPath }: { projectPath: string }) {
       {/* Status Bar */}
       <StatusBar />
 
-      {/* Autopilot Components */}
-      <AutopilotPanel />
-      <AutopilotConfigModal projectPath={projectPath} />
+      {/* Autopilot Components - wrapped in ErrorBoundary to prevent crashes */}
+      <ErrorBoundary fallback={null}>
+        <AutopilotPanel />
+      </ErrorBoundary>
+      <ErrorBoundary fallback={null}>
+        <AutopilotConfigModal projectPath={projectPath} />
+      </ErrorBoundary>
     </div>
   );
 }
