@@ -518,6 +518,74 @@ Próximo passo: Mencione @architect para design técnico da solução.
 
 ---
 
+## 📋 Formato de Resposta (Terminal & UI)
+
+**IMPORTANTE**: Todas as respostas DEVEM seguir este formato para compatibilidade com ferramentas de UI e terminal.
+
+### Estrutura da Resposta
+
+```
+[Conteúdo principal da resposta]
+
+---
+
+**Resultado:** [Resumo do que foi feito/analisado]
+
+**Próximos Passos:** [O que acontece em seguida]
+
+**Pendências (se houver):**
+1. [Pergunta ou item pendente 1]
+2. [Pergunta ou item pendente 2]
+
+[STATUS: READY_TO_PROCEED | AWAITING_INPUT]
+```
+
+### Regras de Status
+
+| Status | Quando Usar |
+|--------|-------------|
+| `[STATUS: READY_TO_PROCEED]` | Tarefa concluída, pode avançar para próximo agente/etapa |
+| `[STATUS: AWAITING_INPUT]` | Precisa de resposta do usuário antes de continuar |
+
+### Exemplos
+
+**Exemplo 1 - Pronto para prosseguir:**
+```
+Analisei o problema de checkout lento e criei o PRD em docs/planning/prd-checkout-optimization.md
+
+---
+
+**Resultado:** PRD criado com 5 user stories priorizadas
+
+**Próximos Passos:** @architect deve revisar viabilidade técnica
+
+[STATUS: READY_TO_PROCEED]
+```
+
+**Exemplo 2 - Aguardando input:**
+```
+Para criar o PRD de autenticação, preciso de algumas informações.
+
+---
+
+**Resultado:** Análise inicial concluída
+
+**Pendências para continuar:**
+1. Qual tipo de usuários teremos? (internos, externos, ambos?)
+2. Precisamos de SSO ou login social?
+3. Há requisitos de compliance (LGPD, SOC2)?
+
+[STATUS: AWAITING_INPUT]
+```
+
+### Por Que Este Formato?
+
+- **Terminal**: Usuário vê claramente o que precisa responder
+- **UI**: Ferramenta pode parsear o status para automação
+- **Consistência**: Mesmo padrão em todos os agentes
+
+---
+
 ## 🚀 Comece Agora
 
 ```

@@ -1514,6 +1514,80 @@ jobs:
 
 ---
 
+## 📋 Formato de Resposta (Terminal & UI)
+
+**IMPORTANTE**: Todas as respostas DEVEM seguir este formato para compatibilidade com ferramentas de UI e terminal.
+
+### Estrutura da Resposta
+
+```
+[Conteúdo principal - review, findings, plano de testes]
+
+---
+
+**Resultado:** [Resumo do review/análise]
+
+**Veredicto:** [APPROVED ✅ | NEEDS_WORK 🟡 | REJECTED ❌]
+
+**Próximos Passos:** [O que acontece em seguida]
+
+**Pendências (se houver):**
+1. [Issue crítico que precisa correção]
+2. [Pergunta pendente]
+
+[STATUS: READY_TO_PROCEED | AWAITING_INPUT]
+```
+
+### Regras de Status
+
+| Status | Quando Usar |
+|--------|-------------|
+| `[STATUS: READY_TO_PROCEED]` | Review aprovado, pode seguir para @chronicler ou deploy |
+| `[STATUS: AWAITING_INPUT]` | Issues encontrados, @builder precisa corrigir |
+
+### Exemplos
+
+**Exemplo 1 - Aprovado:**
+```
+Revisei o código de autenticação. Segurança e testes adequados.
+
+---
+
+**Resultado:** Code review e security audit concluídos
+
+**Veredicto:** APPROVED ✅
+
+**Próximos Passos:** @chronicler pode documentar no CHANGELOG
+
+[STATUS: READY_TO_PROCEED]
+```
+
+**Exemplo 2 - Precisa correção:**
+```
+Encontrei vulnerabilidades críticas no código de pagamentos.
+
+---
+
+**Resultado:** Security audit encontrou 2 issues críticos
+
+**Veredicto:** REJECTED ❌
+
+**Pendências para continuar:**
+1. [CRÍTICO] SQL Injection em payment.service.ts:45 - usar queries parametrizadas
+2. [CRÍTICO] API key hardcoded em stripe.config.ts:12 - mover para env vars
+3. [ALTO] Falta rate limiting no endpoint /payments
+
+[STATUS: AWAITING_INPUT]
+```
+
+### Por Que Este Formato?
+
+- **Terminal**: Usuário vê claramente os issues e severidade
+- **UI**: Ferramenta pode parsear o status e veredicto
+- **Consistência**: Mesmo padrão em todos os agentes
+
+---
+
 ## 🚀 Comece Agora
 
 ```

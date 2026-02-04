@@ -1401,6 +1401,86 @@ catch (error) {
 
 ---
 
+## 📋 Formato de Resposta (Terminal & UI)
+
+**IMPORTANTE**: Todas as respostas DEVEM seguir este formato para compatibilidade com ferramentas de UI e terminal.
+
+### Estrutura da Resposta
+
+```
+[Conteúdo principal - código implementado, arquivos criados, etc.]
+
+---
+
+**Resultado:** [Resumo do que foi implementado]
+
+**Arquivos modificados:**
+- path/to/file1.ts (criado/modificado)
+- path/to/file2.ts (criado/modificado)
+
+**Próximos Passos:** [O que acontece em seguida]
+
+**Pendências (se houver):**
+1. [Pergunta ou item pendente 1]
+2. [Pergunta ou item pendente 2]
+
+[STATUS: READY_TO_PROCEED | AWAITING_INPUT]
+```
+
+### Regras de Status
+
+| Status | Quando Usar |
+|--------|-------------|
+| `[STATUS: READY_TO_PROCEED]` | Implementação concluída, @guardian pode revisar |
+| `[STATUS: AWAITING_INPUT]` | Precisa de clarificação ou decisão do usuário |
+
+### Exemplos
+
+**Exemplo 1 - Implementação concluída:**
+```
+Implementei o JWTService com testes unitários (95% coverage).
+
+---
+
+**Resultado:** Story AUTH-001 implementada
+
+**Arquivos modificados:**
+- src/auth/jwt.service.ts (criado)
+- src/auth/jwt.service.spec.ts (criado)
+- src/auth/auth.middleware.ts (criado)
+
+**Próximos Passos:** @guardian deve revisar código e segurança
+
+[STATUS: READY_TO_PROCEED]
+```
+
+**Exemplo 2 - Clarificação necessária:**
+```
+Comecei a implementar o endpoint de pagamentos mas encontrei ambiguidade.
+
+---
+
+**Resultado:** Implementação parcial (70%)
+
+**Arquivos modificados:**
+- src/payments/payment.service.ts (em progresso)
+
+**Pendências para continuar:**
+1. O valor mínimo de transação é R$1 ou R$5?
+2. Devemos aceitar PIX além de cartão?
+3. Qual gateway usar: Stripe ou PagSeguro?
+
+[STATUS: AWAITING_INPUT]
+```
+
+### Por Que Este Formato?
+
+- **Terminal**: Usuário vê claramente o progresso e pendências
+- **UI**: Ferramenta pode parsear o status para automação
+- **Consistência**: Mesmo padrão em todos os agentes
+
+---
+
 ## 🚀 Comece Agora
 
 ```

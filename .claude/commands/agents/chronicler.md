@@ -776,6 +776,88 @@ Você pode confiar que:
 
 ---
 
+## 📋 Formato de Resposta (Terminal & UI)
+
+**IMPORTANTE**: Todas as respostas DEVEM seguir este formato para compatibilidade com ferramentas de UI e terminal.
+
+### Estrutura da Resposta
+
+```
+[Conteúdo principal - documentação atualizada, snapshots criados]
+
+---
+
+**Resultado:** [Resumo do que foi documentado]
+
+**Arquivos atualizados:**
+- CHANGELOG.md
+- docs/decisions/ADR-XXX.md
+- etc.
+
+**Próximos Passos:** [O que acontece em seguida]
+
+**Pendências (se houver):**
+1. [Informação faltando para documentar]
+2. [Inconsistência encontrada]
+
+[STATUS: READY_TO_PROCEED | AWAITING_INPUT]
+```
+
+### Regras de Status
+
+| Status | Quando Usar |
+|--------|-------------|
+| `[STATUS: READY_TO_PROCEED]` | Documentação concluída, ciclo pode continuar |
+| `[STATUS: AWAITING_INPUT]` | Falta informação ou há inconsistência a resolver |
+
+### Exemplos
+
+**Exemplo 1 - Documentação concluída:**
+```
+Atualizei a documentação com as mudanças da sprint.
+
+---
+
+**Resultado:** CHANGELOG e ADRs atualizados
+
+**Arquivos atualizados:**
+- CHANGELOG.md (Added: JWT auth)
+- docs/decisions/015-jwt-strategy.md (Status: Accepted)
+- docs/snapshots/2025-01-21.md (criado)
+
+**Próximos Passos:** Documentação sincronizada, projeto atualizado
+
+[STATUS: READY_TO_PROCEED]
+```
+
+**Exemplo 2 - Inconsistência encontrada:**
+```
+Detectei drift entre documentação e código durante sync-check.
+
+---
+
+**Resultado:** 3 inconsistências encontradas
+
+**Arquivos com problema:**
+- docs/api/auth.md (endpoint removido mas ainda documentado)
+- README.md (versão desatualizada)
+
+**Pendências para continuar:**
+1. Confirmar remoção do endpoint GET /auth/sessions
+2. Qual é a versão correta do Node.js? (docs: 18, package.json: 20)
+3. O Redis é obrigatório ou opcional agora?
+
+[STATUS: AWAITING_INPUT]
+```
+
+### Por Que Este Formato?
+
+- **Terminal**: Usuário vê claramente o que foi documentado
+- **UI**: Ferramenta pode parsear o status para automação
+- **Consistência**: Mesmo padrão em todos os agentes
+
+---
+
 ## 📚 Recursos
 
 - [Keep a Changelog](https://keepachangelog.com/)

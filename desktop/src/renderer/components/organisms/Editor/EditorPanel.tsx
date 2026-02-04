@@ -1,14 +1,14 @@
 import { useFileStore } from '@/lib/stores/fileStore';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { EditorTabs } from '@/components/organisms/EditorTabs';
-import { Breadcrumbs } from './Breadcrumbs';
-import { MonacoEditor } from './MonacoEditor';
-import { MarkdownPreview } from './MarkdownPreview';
-import { Eye, Columns, Code2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Breadcrumbs } from '@/components/editor/Breadcrumbs';
+import { MonacoEditor } from '@/components/editor/MonacoEditor';
+import { MarkdownPreview } from '@/components/editor/MarkdownPreview';
+import { Eye, Columns, Code2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function EditorPanel() {
-  const { openFiles, activeFile, navigateBack, navigateForward, canGoBack, canGoForward } = useFileStore();
+  const { openFiles, activeFile } = useFileStore();
   const { previewVisible, togglePreview } = useUIStore();
 
   const activeOpenFile = openFiles.find((f) => f.path === activeFile);
@@ -34,40 +34,7 @@ export function EditorPanel() {
     <div className="h-full flex flex-col bg-[#0a0a0f]">
       {/* Tabs */}
       <div className="flex items-center border-b border-white/10 bg-[#08080c]">
-        {/* Navigation buttons */}
-        <div className="flex items-center px-1 border-r border-white/10">
-          <button
-            onClick={navigateBack}
-            disabled={!canGoBack()}
-            className={cn(
-              'p-1.5 rounded-lg transition-colors',
-              canGoBack()
-                ? 'text-gray-400 hover:text-white hover:bg-white/10'
-                : 'text-gray-700 cursor-not-allowed'
-            )}
-            title="Go Back (Alt+Left)"
-            aria-label="Go back"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={navigateForward}
-            disabled={!canGoForward()}
-            className={cn(
-              'p-1.5 rounded-lg transition-colors',
-              canGoForward()
-                ? 'text-gray-400 hover:text-white hover:bg-white/10'
-                : 'text-gray-700 cursor-not-allowed'
-            )}
-            title="Go Forward (Alt+Right)"
-            aria-label="Go forward"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
         <EditorTabs />
-
         {/* Preview toggle for markdown */}
         {isMarkdown && (
           <div className="flex items-center px-2 border-l border-white/10">

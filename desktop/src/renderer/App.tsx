@@ -7,7 +7,7 @@ import { useSettingsStore } from '@/lib/stores/settingsStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { StatusBar } from '@/components/layout/StatusBar';
-import { EditorPanel } from '@/components/editor/EditorPanel';
+import { EditorPanel } from '@/components/organisms/Editor';
 import { TerminalPanel } from '@/components/organisms/TerminalWindow';
 import { ResizeHandle } from '@/components/ui/ResizeHandle';
 import { cn } from '@/lib/utils';

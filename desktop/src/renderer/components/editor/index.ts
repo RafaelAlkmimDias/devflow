@@ -1,4 +1,4 @@
-export { EditorPanel } from './EditorPanel';
+export { EditorPanel } from '@/components/organisms/Editor';
 export { EditorTabs, TabContextMenu } from '@/components/organisms/EditorTabs';
 export { MonacoEditor } from './MonacoEditor';
 export { Breadcrumbs } from './Breadcrumbs';

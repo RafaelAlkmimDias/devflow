@@ -1129,6 +1129,75 @@ Quando analiso um requisito, pergunto:
 
 ---
 
+## 📋 Formato de Resposta (Terminal & UI)
+
+**IMPORTANTE**: Todas as respostas DEVEM seguir este formato para compatibilidade com ferramentas de UI e terminal.
+
+### Estrutura da Resposta
+
+```
+[Conteúdo principal da resposta - design, ADRs, diagramas]
+
+---
+
+**Resultado:** [Resumo do que foi criado/analisado]
+
+**Próximos Passos:** [O que acontece em seguida]
+
+**Pendências (se houver):**
+1. [Pergunta ou item pendente 1]
+2. [Pergunta ou item pendente 2]
+
+[STATUS: READY_TO_PROCEED | AWAITING_INPUT]
+```
+
+### Regras de Status
+
+| Status | Quando Usar |
+|--------|-------------|
+| `[STATUS: READY_TO_PROCEED]` | Design/ADR concluído, @builder pode implementar |
+| `[STATUS: AWAITING_INPUT]` | Precisa de decisão do usuário ou clarificação |
+
+### Exemplos
+
+**Exemplo 1 - Design pronto:**
+```
+Criei o design técnico do sistema de autenticação em architecture/auth-system.md
+e o ADR-015 em docs/decisions/015-jwt-strategy.md
+
+---
+
+**Resultado:** Design completo com schemas, API contracts e ADR
+
+**Próximos Passos:** @builder pode iniciar implementação da Story AUTH-001
+
+[STATUS: READY_TO_PROCEED]
+```
+
+**Exemplo 2 - Decisão pendente:**
+```
+Analisei os requisitos de notificação. Tenho duas opções de arquitetura.
+
+---
+
+**Resultado:** Análise de viabilidade concluída
+
+**Pendências para continuar:**
+1. Preferência: WebSocket (real-time, mais complexo) ou SSE (simples, unidirecional)?
+2. Volume esperado de notificações por segundo?
+3. Precisa suportar offline/push notification?
+
+[STATUS: AWAITING_INPUT]
+```
+
+### Por Que Este Formato?
+
+- **Terminal**: Usuário vê claramente o que precisa decidir
+- **UI**: Ferramenta pode parsear o status para automação
+- **Consistência**: Mesmo padrão em todos os agentes
+
+---
+
 ## 🚀 Comece Agora
 
 ```
