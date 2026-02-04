@@ -14,7 +14,7 @@ export function HealthCheck({ health, blockedTasks }: HealthCheckProps) {
         <Wifi className="w-4 h-4 text-purple-400" />
         <h3 className="text-sm font-medium text-white">Health Check</h3>
       </div>
-      <div className="space-y-1">
+      <div className="grid grid-cols-1 lg:grid-cols-2">
         <HealthItem
           label="Claude CLI"
           status={health?.claudeCli?.installed ? 'ok' : 'error'}

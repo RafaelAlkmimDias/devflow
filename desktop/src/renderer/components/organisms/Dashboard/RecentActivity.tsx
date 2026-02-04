@@ -19,7 +19,7 @@ export function RecentActivity({ activities }: RecentActivityProps) {
             <div key={index} className="flex items-start gap-3">
               <activity.icon className={cn('w-4 h-4 mt-0.5', activity.color)} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-white truncate">{activity.text}</p>
+                <p className="text-sm text-white">{activity.text}</p>
                 <p className="text-xs text-gray-500">{activity.time}</p>
               </div>
             </div>

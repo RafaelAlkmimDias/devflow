@@ -19,7 +19,7 @@ export function TaskBreakdown({
         <CheckSquare className="w-4 h-4 text-purple-400" />
         <h3 className="text-sm font-medium text-white">Task Breakdown</h3>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
         <div className="text-center p-3 rounded-lg bg-gray-500/10">
           <p className="text-2xl font-bold text-gray-400">{pendingTasks}</p>
           <p className="text-xs text-gray-500">Pending</p>
