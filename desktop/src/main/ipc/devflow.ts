@@ -18,4 +18,9 @@ export function registerDevFlowHandlers(): void {
   ipcMain.handle('devflow:setup', async (_, projectPath: string): Promise<{ success: boolean; error?: string }> => {
     return devFlowService.setup(projectPath)
   })
+
+  // Update DevFlow agents in a project (force update existing files)
+  ipcMain.handle('devflow:update', async (_, projectPath: string): Promise<{ success: boolean; error?: string; updatedAgents: string[] }> => {
+    return devFlowService.update(projectPath)
+  })
 }

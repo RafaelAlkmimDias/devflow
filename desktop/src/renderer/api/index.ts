@@ -12,6 +12,7 @@ import type {
   SearchResult,
   DevFlowStatus,
   DevFlowSetupResult,
+  AgentVersionInfo,
   Requirement,
   RequirementsStatus,
   AutopilotStreamData,
@@ -29,6 +30,7 @@ export type {
   SearchResult,
   DevFlowStatus,
   DevFlowSetupResult,
+  AgentVersionInfo,
   Requirement,
   RequirementsStatus,
   AutopilotStreamData,
@@ -87,6 +89,7 @@ export interface ElectronAPI {
   // DevFlow
   checkDevFlow: (projectPath: string) => Promise<DevFlowStatus>
   setupDevFlow: (projectPath: string) => Promise<DevFlowSetupResult>
+  updateDevFlow: (projectPath: string) => Promise<{ success: boolean; error?: string; updatedAgents: string[] }>
 
   // Requirements
   checkRequirements: () => Promise<RequirementsStatus>

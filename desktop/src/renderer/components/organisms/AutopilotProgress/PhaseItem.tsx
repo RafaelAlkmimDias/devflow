@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { PhaseResult } from '@/lib/stores/autopilotStore';
 import { AGENT_INFO } from './types';
+import { ChatOutput } from './ChatOutput';
 
 interface PhaseItemProps {
   phase: PhaseResult;
@@ -186,14 +187,12 @@ export function PhaseItem({
               </button>
             </div>
           </div>
-          <pre
-            className={cn(
-              'text-xs text-gray-400 whitespace-pre-wrap overflow-y-auto font-mono',
-              shouldFillSpace ? 'flex-1 min-h-0' : (isMaximized ? 'max-h-[300px]' : 'max-h-40')
-            )}
-          >
-            {phase.output}
-          </pre>
+          <ChatOutput
+            output={phase.output || ''}
+            agentId={phase.agent}
+            isMaximized={isMaximized}
+            shouldFillSpace={shouldFillSpace}
+          />
 
           {/* Response input for continuing conversation */}
           {showResponseInput && canRespond && (

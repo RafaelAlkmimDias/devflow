@@ -54,6 +54,7 @@ export interface ElectronAPI {
   // DevFlow
   checkDevFlow: (projectPath: string) => Promise<DevFlowStatus>
   setupDevFlow: (projectPath: string) => Promise<DevFlowSetupResult>
+  updateDevFlow: (projectPath: string) => Promise<{ success: boolean; error?: string; updatedAgents: string[] }>
 
   // Requirements
   checkRequirements: () => Promise<RequirementsStatus>
@@ -205,6 +206,7 @@ const api: ElectronAPI = {
   // DevFlow
   checkDevFlow: (projectPath) => ipcRenderer.invoke('devflow:check', projectPath),
   setupDevFlow: (projectPath) => ipcRenderer.invoke('devflow:setup', projectPath),
+  updateDevFlow: (projectPath) => ipcRenderer.invoke('devflow:update', projectPath),
 
   // Requirements
   checkRequirements: () => ipcRenderer.invoke('requirements:check'),

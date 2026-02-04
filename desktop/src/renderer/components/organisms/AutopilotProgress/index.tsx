@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useAutopilotStore } from '@/lib/stores/autopilotStore';
 import { agentApi } from '@/infrastructure/api';
 import type { AutopilotStreamData } from '@shared/types';
 import { AutopilotHeader } from './AutopilotHeader';
-import { AutopilotLiveLog } from './AutopilotLiveLog';
 import { AutopilotFooter } from './AutopilotFooter';
 import { AwaitingInputPanel } from './AwaitingInputPanel';
 import { PhaseItem } from './PhaseItem';
+import { MessageCircle, Send } from 'lucide-react';
 
 export function AutopilotProgress() {
   const store = useAutopilotStore();
@@ -24,69 +24,67 @@ export function AutopilotProgress() {
   const getNextAgent = store.getNextAgent;
   const skipToNextAgent = store.skipToNextAgent;
   const currentPhaseIndex = store.currentPhaseIndex ?? -1;
-  const liveLog = store.liveLog ?? '';
-  const appendLog = store.appendLog;
-  const clearLog = store.clearLog;
 
   const [startTime, setStartTime] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
   const [expandedPhase, setExpandedPhase] = useState<number | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [showLiveLog, setShowLiveLog] = useState(true);
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const [responseInput, setResponseInput] = useState('');
-  const [currentAgent, setCurrentAgent] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [isStartingNext, setIsStartingNext] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
-
-  // Copy live log to clipboard
-  const handleCopyLog = async () => {
-    if (!liveLog) return;
-    try {
-      await navigator.clipboard.writeText(liveLog);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Listen to autopilot stream
   useEffect(() => {
     const unsubscribe = agentApi.onStream((data: AutopilotStreamData) => {
       if (data.type === 'start') {
-        clearLog();
         setWaitingForResponse(false);
-        setCurrentAgent(data.agent || null);
-      } else if (data.type === 'stdout' && data.data) {
-        appendLog(data.data);
-      } else if (data.type === 'stderr' && data.data) {
-        appendLog(`[stderr] ${data.data}`);
       } else if (data.type === 'question' && data.data) {
         setWaitingForResponse(true);
-        setCurrentAgent(data.agent || null);
-        appendLog('\n--- Aguardando resposta ---\n');
       } else if (data.type === 'response-sent') {
         setWaitingForResponse(false);
         setResponseInput('');
-        appendLog(`\n[Sua resposta: ${data.data}]\n`);
       }
     });
 
     return () => unsubscribe();
-  }, [appendLog, clearLog]);
+  }, []);
 
-  // Handle sending response
+  // Handle sending response - use continuePhase to re-run agent with user's response
   const handleSendResponse = async () => {
-    if (!responseInput.trim() || !currentAgent) return;
+    if (!responseInput.trim() || currentPhaseIndex < 0) return;
 
     try {
-      await agentApi.respond(currentAgent, responseInput.trim());
+      setWaitingForResponse(false);
+      const response = responseInput.trim();
+      setResponseInput('');
+      await continuePhase(currentPhaseIndex, response);
     } catch (err) {
-      console.error('Failed to send response:', err);
-      appendLog(`\n[Erro ao enviar resposta: ${err}]\n`);
+      console.error('Failed to continue phase:', err);
+      setWaitingForResponse(true); // Restore state on error
+    }
+  };
+
+  // Focus input and expand current phase when waiting for response
+  useEffect(() => {
+    if (waitingForResponse) {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+      // Auto-expand current phase so user can see the agent's question
+      if (currentPhaseIndex >= 0) {
+        setExpandedPhase(currentPhaseIndex);
+      }
+    }
+  }, [waitingForResponse, currentPhaseIndex]);
+
+  // Handle Enter key in response input
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendResponse();
     }
   };
 
@@ -124,7 +122,6 @@ export function AutopilotProgress() {
     return `${mins}m ${remainSecs}s`;
   };
 
-  const isRunning = status === 'running';
   const isCompleted = status === 'completed';
   const isFailed = status === 'failed';
   const isInterrupted = status === 'interrupted';
@@ -235,20 +232,33 @@ export function AutopilotProgress() {
         </div>
       )}
 
-      {/* Live Log - hidden when minimized */}
-      {isRunning && !isMinimized && (
-        <AutopilotLiveLog
-          liveLog={liveLog}
-          isMaximized={isMaximized}
-          showLiveLog={showLiveLog}
-          waitingForResponse={waitingForResponse}
-          responseInput={responseInput}
-          onToggleLog={() => setShowLiveLog(!showLiveLog)}
-          onCopyLog={handleCopyLog}
-          onResponseChange={setResponseInput}
-          onSendResponse={handleSendResponse}
-          copied={copied}
-        />
+      {/* Response Input - shown when agent asks a question */}
+      {waitingForResponse && !isMinimized && (
+        <div className="px-3 py-3 bg-yellow-500/10 border-t border-yellow-500/20">
+          <div className="flex items-center gap-2 mb-2">
+            <MessageCircle className="w-4 h-4 text-yellow-400" />
+            <span className="text-xs text-yellow-400 font-medium">Agent is waiting for your response</span>
+          </div>
+          <div className="flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={responseInput}
+              onChange={(e) => setResponseInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your response and press Enter..."
+              className="flex-1 px-3 py-2 bg-black/40 border border-yellow-500/30 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50"
+            />
+            <button
+              onClick={handleSendResponse}
+              disabled={!responseInput.trim()}
+              className="px-3 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Send response"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Awaiting Input - show when paused for question */}

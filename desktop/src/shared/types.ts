@@ -108,12 +108,22 @@ export interface AutopilotStreamData {
 }
 
 // DevFlow types
+export interface AgentVersionInfo {
+  id: string
+  name: string
+  templateVersion: string
+  projectVersion: string | null
+  needsUpdate: boolean
+}
+
 export interface DevFlowStatus {
   isDevFlowProject: boolean
   hasAgents: boolean
   hasDevflowFolder: boolean
   missingFiles: string[]
   missingFolders: string[]
+  hasUpdates: boolean
+  outdatedAgents: AgentVersionInfo[]
 }
 
 export interface DevFlowSetupResult {

@@ -8,19 +8,118 @@ import {
   generateKnowledgeGraph,
 } from '../domain/devflow/ProjectTemplate'
 
+export interface AgentVersionInfo {
+  id: string
+  name: string
+  templateVersion: string
+  projectVersion: string | null
+  needsUpdate: boolean
+}
+
 export interface DevFlowStatus {
   isDevFlowProject: boolean
   hasAgents: boolean
   hasDevflowFolder: boolean
   missingFiles: string[]
   missingFolders: string[]
+  hasUpdates: boolean
+  outdatedAgents: AgentVersionInfo[]
 }
+
+const AGENT_IDS = ['strategist', 'architect', 'builder', 'guardian', 'chronicler'] as const
 
 /**
  * Service responsible for DevFlow project setup and validation.
  * Manages template files and project structure.
  */
 export class DevFlowService {
+  /**
+   * Extract version from a .meta.yaml file content
+   */
+  private extractVersionFromMetaYaml(content: string): { version: string; name: string } | null {
+    try {
+      // Simple YAML parsing for version field
+      const versionMatch = content.match(/^\s*version:\s*["']?([^"'\n]+)["']?/m)
+      const nameMatch = content.match(/^\s*name:\s*["']?([^"'\n]+)["']?/m)
+
+      if (versionMatch) {
+        return {
+          version: versionMatch[1].trim(),
+          name: nameMatch ? nameMatch[1].trim() : 'Unknown'
+        }
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Compare two semantic versions. Returns:
+   * -1 if v1 < v2
+   *  0 if v1 === v2
+   *  1 if v1 > v2
+   */
+  private compareVersions(v1: string, v2: string): number {
+    const parts1 = v1.split('.').map(Number)
+    const parts2 = v2.split('.').map(Number)
+
+    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+      const p1 = parts1[i] || 0
+      const p2 = parts2[i] || 0
+      if (p1 < p2) return -1
+      if (p1 > p2) return 1
+    }
+    return 0
+  }
+
+  /**
+   * Check agent versions and identify outdated ones
+   */
+  private checkAgentVersions(templatesDir: string, projectPath: string): AgentVersionInfo[] {
+    const results: AgentVersionInfo[] = []
+
+    for (const agentId of AGENT_IDS) {
+      const templateMetaPath = path.join(templatesDir, `.claude/commands/agents/${agentId}.meta.yaml`)
+      const projectMetaPath = path.join(projectPath, `.claude/commands/agents/${agentId}.meta.yaml`)
+
+      let templateVersion = '0.0.0'
+      let templateName = agentId.charAt(0).toUpperCase() + agentId.slice(1)
+      let projectVersion: string | null = null
+
+      // Read template version
+      if (fs.existsSync(templateMetaPath)) {
+        const content = fs.readFileSync(templateMetaPath, 'utf-8')
+        const parsed = this.extractVersionFromMetaYaml(content)
+        if (parsed) {
+          templateVersion = parsed.version
+          templateName = parsed.name
+        }
+      }
+
+      // Read project version (if exists)
+      if (fs.existsSync(projectMetaPath)) {
+        const content = fs.readFileSync(projectMetaPath, 'utf-8')
+        const parsed = this.extractVersionFromMetaYaml(content)
+        if (parsed) {
+          projectVersion = parsed.version
+        }
+      }
+
+      const needsUpdate = projectVersion !== null && this.compareVersions(projectVersion, templateVersion) < 0
+
+      results.push({
+        id: agentId,
+        name: templateName,
+        templateVersion,
+        projectVersion,
+        needsUpdate,
+      })
+    }
+
+    return results
+  }
+
   /**
    * Get the templates directory - bundled with the app or in development
    */
@@ -44,6 +143,7 @@ export class DevFlowService {
    * Check if a project has DevFlow setup
    */
   check(projectPath: string): DevFlowStatus {
+    const templatesDir = this.getTemplatesDir()
     const missingFiles: string[] = []
     const missingFolders: string[] = []
 
@@ -77,12 +177,18 @@ export class DevFlowService {
 
     const hasDevflowFolder = fs.existsSync(path.join(projectPath, '.devflow'))
 
+    // Check agent versions (only if agents are installed)
+    const outdatedAgents = hasAgents ? this.checkAgentVersions(templatesDir, projectPath) : []
+    const hasUpdates = outdatedAgents.some(agent => agent.needsUpdate)
+
     return {
       isDevFlowProject: missingFiles.length === 0 && missingFolders.length === 0,
       hasAgents,
       hasDevflowFolder,
       missingFiles,
       missingFolders,
+      hasUpdates,
+      outdatedAgents,
     }
   }
 
@@ -130,7 +236,42 @@ export class DevFlowService {
   }
 
   /**
-   * Helper function to copy files from templates to project
+   * Update DevFlow agents in a project (force copy all agent files)
+   */
+  update(projectPath: string): { success: boolean; error?: string; updatedAgents: string[] } {
+    try {
+      const templatesDir = this.getTemplatesDir()
+      const updatedAgents: string[] = []
+
+      // Force copy agent files (overwrite existing)
+      this.copyFilesForce(templatesDir, projectPath, REQUIRED_STRUCTURE.agents)
+
+      // Force copy subcommand files
+      this.copyFilesForce(templatesDir, projectPath, REQUIRED_STRUCTURE.subcommands)
+
+      // Force copy quick commands
+      this.copyFilesForce(templatesDir, projectPath, REQUIRED_STRUCTURE.quick)
+
+      // Force copy general commands
+      this.copyFilesForce(templatesDir, projectPath, REQUIRED_STRUCTURE.general)
+
+      // Identify which agents were updated
+      for (const agentId of AGENT_IDS) {
+        updatedAgents.push(agentId)
+      }
+
+      return { success: true, updatedAgents }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        updatedAgents: [],
+      }
+    }
+  }
+
+  /**
+   * Helper function to copy files from templates to project (skip if exists)
    */
   private copyFiles(templatesDir: string, projectPath: string, files: string[]): void {
     for (const file of files) {
@@ -138,6 +279,26 @@ export class DevFlowService {
       const destPath = path.join(projectPath, file)
 
       if (fs.existsSync(srcPath) && !fs.existsSync(destPath)) {
+        const content = fs.readFileSync(srcPath, 'utf-8')
+        fs.writeFileSync(destPath, content, 'utf-8')
+      }
+    }
+  }
+
+  /**
+   * Helper function to copy files from templates to project (force overwrite)
+   */
+  private copyFilesForce(templatesDir: string, projectPath: string, files: string[]): void {
+    for (const file of files) {
+      const srcPath = path.join(templatesDir, file)
+      const destPath = path.join(projectPath, file)
+
+      if (fs.existsSync(srcPath)) {
+        // Ensure directory exists
+        const destDir = path.dirname(destPath)
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true })
+        }
         const content = fs.readFileSync(srcPath, 'utf-8')
         fs.writeFileSync(destPath, content, 'utf-8')
       }

@@ -109,7 +109,20 @@ export class AgentService {
         console.log('[AgentService] Process exited with code:', exitCode)
         console.log('[AgentService] Output length:', output.length)
 
-        this.cleanup(agent)
+        // Clear pending question timeout
+        this.clearQuestionTimeout(agent)
+
+        // Check for question in remaining buffer BEFORE cleanup
+        if (questionBuffer.length > 0 && detectQuestion(questionBuffer)) {
+          console.log('[AgentService] Question detected at exit, sending to renderer')
+          this.sendToRenderer('autopilot:stream', {
+            agent,
+            type: 'question',
+            data: questionBuffer.slice(-500),
+          })
+        }
+
+        this.activePtyProcesses.delete(agent)
 
         if (exitCode === 0) {
           resolve(output)

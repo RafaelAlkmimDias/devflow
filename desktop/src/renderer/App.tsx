@@ -387,13 +387,13 @@ function App() {
     try {
       const status = await api.checkDevFlow(path);
 
-      if (!status.isDevFlowProject) {
-        // Project doesn't have DevFlow, show setup modal
+      if (!status.isDevFlowProject || status.hasUpdates) {
+        // Project doesn't have DevFlow or has outdated agents, show setup/update modal
         setPendingProjectPath(path);
         setDevFlowStatus(status);
         setShowDevFlowSetup(true);
       } else {
-        // Project has DevFlow, open directly
+        // Project has DevFlow and is up to date, open directly
         completeProjectOpen(path);
       }
     } catch (error) {
