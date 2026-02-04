@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { api, Requirement, RequirementsStatus } from '@/api';
+import { appApi } from '@/infrastructure/api';
+import type { Requirement, RequirementsStatus } from '@shared/types';
 import {
   AlertTriangle,
   CheckCircle,
@@ -288,7 +289,7 @@ function RequirementItem({
                     rel="noopener noreferrer"
                     onClick={(e) => {
                       e.preventDefault();
-                      api.openExternal(requirement.helpUrl!);
+                      appApi.openExternal(requirement.helpUrl!);
                     }}
                     className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
                   >

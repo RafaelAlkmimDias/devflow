@@ -1,6 +1,6 @@
 import { useFileStore } from '@/lib/stores/fileStore';
 import { useUIStore } from '@/lib/stores/uiStore';
-import { EditorTabs } from './EditorTabs';
+import { EditorTabs } from '@/components/organisms/EditorTabs';
 import { Breadcrumbs } from './Breadcrumbs';
 import { MonacoEditor } from './MonacoEditor';
 import { MarkdownPreview } from './MarkdownPreview';

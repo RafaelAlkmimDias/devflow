@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api } from '@/api';
+import { gitApi } from '@/infrastructure/api';
 import type { GitStatus, GitCommit, GitBranch } from '@/lib/types';
 
 interface GitState {
@@ -56,7 +56,7 @@ export const useGitStore = create<GitState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       // Check if directory is a git repo
-      const isRepo = await api.gitIsRepo(projectPath);
+      const isRepo = await gitApi.isRepo(projectPath);
       if (!isRepo) {
         set({
           isRepo: false,
@@ -66,7 +66,7 @@ export const useGitStore = create<GitState>((set, get) => ({
         return;
       }
 
-      const status = await api.gitStatus(projectPath);
+      const status = await gitApi.getStatus(projectPath);
       set({
         status,
         currentBranch: status.current,
@@ -84,7 +84,7 @@ export const useGitStore = create<GitState>((set, get) => ({
 
   fetchLog: async (projectPath: string, maxCount: number = 50) => {
     try {
-      const commits = await api.gitLog(projectPath, maxCount);
+      const commits = await gitApi.getLog(projectPath, maxCount);
       set({ commits });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to fetch log' });
@@ -93,7 +93,7 @@ export const useGitStore = create<GitState>((set, get) => ({
 
   fetchBranches: async (projectPath: string) => {
     try {
-      const result = await api.gitBranches(projectPath);
+      const result = await gitApi.getBranches(projectPath);
       set({
         branches: result.branches,
         currentBranch: result.current,
@@ -105,7 +105,7 @@ export const useGitStore = create<GitState>((set, get) => ({
 
   fetchDiff: async (projectPath: string, file?: string) => {
     try {
-      const diff = await api.gitDiff(projectPath, file);
+      const diff = await gitApi.getDiff(projectPath, file);
       set({ diffContent: diff, diffFile: file || null });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to fetch diff' });
@@ -114,7 +114,7 @@ export const useGitStore = create<GitState>((set, get) => ({
 
   stageFiles: async (projectPath: string, files: string[]) => {
     try {
-      await api.gitStage(projectPath, files);
+      await gitApi.stage(projectPath, files);
       await get().fetchStatus(projectPath);
       return true;
     } catch (error) {
@@ -125,7 +125,7 @@ export const useGitStore = create<GitState>((set, get) => ({
 
   unstageFiles: async (projectPath: string, files: string[]) => {
     try {
-      await api.gitUnstage(projectPath, files);
+      await gitApi.unstage(projectPath, files);
       await get().fetchStatus(projectPath);
       return true;
     } catch (error) {
@@ -147,7 +147,7 @@ export const useGitStore = create<GitState>((set, get) => ({
     if (allFiles.length === 0) return true;
 
     try {
-      await api.gitStage(projectPath, allFiles);
+      await gitApi.stage(projectPath, allFiles);
       await get().fetchStatus(projectPath);
       return true;
     } catch (error) {
@@ -161,7 +161,7 @@ export const useGitStore = create<GitState>((set, get) => ({
     if (!status || status.staged.length === 0) return true;
 
     try {
-      await api.gitUnstage(projectPath, status.staged);
+      await gitApi.unstage(projectPath, status.staged);
       await get().fetchStatus(projectPath);
       return true;
     } catch (error) {
@@ -172,7 +172,7 @@ export const useGitStore = create<GitState>((set, get) => ({
 
   discardChanges: async (projectPath: string, files: string[]) => {
     try {
-      await api.gitDiscard(projectPath, files);
+      await gitApi.discard(projectPath, files);
       await get().fetchStatus(projectPath);
       return true;
     } catch (error) {
@@ -184,7 +184,7 @@ export const useGitStore = create<GitState>((set, get) => ({
   initRepo: async (projectPath: string) => {
     set({ isLoading: true });
     try {
-      await api.gitInit(projectPath);
+      await gitApi.init(projectPath);
       await get().fetchStatus(projectPath);
       set({ isLoading: false });
       return { success: true };
@@ -198,7 +198,7 @@ export const useGitStore = create<GitState>((set, get) => ({
   commit: async (projectPath: string, message: string) => {
     set({ isLoading: true });
     try {
-      await api.gitCommit(projectPath, message);
+      await gitApi.commit(projectPath, message);
       await get().fetchStatus(projectPath);
       await get().fetchLog(projectPath);
       set({ isLoading: false });
@@ -214,7 +214,7 @@ export const useGitStore = create<GitState>((set, get) => ({
   push: async (projectPath: string) => {
     set({ isLoading: true });
     try {
-      await api.gitPush(projectPath);
+      await gitApi.push(projectPath);
       await get().fetchStatus(projectPath);
       set({ isLoading: false });
       console.log('Pushed to remote');
@@ -229,7 +229,7 @@ export const useGitStore = create<GitState>((set, get) => ({
   pull: async (projectPath: string) => {
     set({ isLoading: true });
     try {
-      await api.gitPull(projectPath);
+      await gitApi.pull(projectPath);
       await get().fetchStatus(projectPath);
       await get().fetchLog(projectPath);
       set({ isLoading: false });
@@ -245,7 +245,7 @@ export const useGitStore = create<GitState>((set, get) => ({
   checkout: async (projectPath: string, branch: string) => {
     set({ isLoading: true });
     try {
-      await api.gitCheckout(projectPath, branch);
+      await gitApi.checkout(projectPath, branch);
       await get().fetchStatus(projectPath);
       await get().fetchBranches(projectPath);
       set({ isLoading: false });
@@ -261,7 +261,7 @@ export const useGitStore = create<GitState>((set, get) => ({
   createBranch: async (projectPath: string, branch: string) => {
     set({ isLoading: true });
     try {
-      await api.gitCreateBranch(projectPath, branch);
+      await gitApi.createBranch(projectPath, branch);
       await get().fetchStatus(projectPath);
       await get().fetchBranches(projectPath);
       set({ isLoading: false });

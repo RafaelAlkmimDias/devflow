@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ProjectInfo } from '@/lib/types';
-import { api } from '@/api';
+import { projectApi } from '@/infrastructure/api';
 
 interface RecentProject {
   path: string;
@@ -88,7 +88,7 @@ export const useProjectStore = create<ProjectState>()(
           }
 
           // Also add to Electron's recent projects
-          await api.addRecentProject(path);
+          await projectApi.addRecentProject(path);
 
           set({
             currentProject: project,
@@ -116,7 +116,7 @@ export const useProjectStore = create<ProjectState>()(
 
       selectProjectDialog: async () => {
         try {
-          const path = await api.selectDirectory();
+          const path = await projectApi.selectDirectory();
           return path;
         } catch (error) {
           console.error('Failed to open directory dialog:', error);

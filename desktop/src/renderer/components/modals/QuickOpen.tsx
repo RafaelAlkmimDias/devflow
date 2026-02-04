@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { useProjectStore } from '@/lib/stores/projectStore';
 import { useFileStore } from '@/lib/stores/fileStore';
-import { api } from '@/api';
+import { searchApi } from '@/infrastructure/api';
 import { Search, File, FileText, FileCode, FileJson, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -85,7 +85,7 @@ export function QuickOpen() {
 
     setIsLoading(true);
     try {
-      const filePaths = await api.searchFiles(currentProject.path, searchQuery);
+      const filePaths = await searchApi.searchFiles(currentProject.path, searchQuery);
       const parsedResults = filePaths.map((fp) => parseFileResult(fp, currentProject.path));
       setResults(parsedResults);
       setSelectedIndex(0);

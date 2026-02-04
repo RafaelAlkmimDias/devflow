@@ -1,3 +1,6 @@
+// Re-export shared types (Git)
+export type { GitStatus, GitCommit, GitBranch } from '../../../shared/types';
+
 // File types
 export interface FileNode {
   name: string;
@@ -172,30 +175,3 @@ export interface AutopilotConfig {
   requireApproval: 'none' | 'files' | 'all';
 }
 
-// Git types (from shared)
-export interface GitStatus {
-  current: string | null;
-  tracking: string | null;
-  ahead: number;
-  behind: number;
-  staged: string[];
-  modified: string[];
-  not_added: string[];
-  deleted: string[];
-  conflicted: string[];
-  isClean: boolean;
-}
-
-export interface GitCommit {
-  hash: string;
-  date: string;
-  message: string;
-  author_name: string;
-  author_email: string;
-}
-
-export interface GitBranch {
-  name: string;
-  current: boolean;
-  commit: string;
-}

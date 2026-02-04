@@ -8,7 +8,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { EditorPanel } from '@/components/editor/EditorPanel';
-import { TerminalPanel } from '@/components/terminal/TerminalPanel';
+import { TerminalPanel } from '@/components/organisms/TerminalWindow';
 import { ResizeHandle } from '@/components/ui/ResizeHandle';
 import { cn } from '@/lib/utils';
 import {
@@ -24,13 +24,15 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Toaster } from 'sonner';
-import { GitPanel } from '@/components/git';
-import { QuickOpen, GlobalSearch, CommandPalette, DevFlowSetupModal, RequirementsModal } from '@/components/modals';
+import { GitPanel } from '@/components/organisms/GitChanges';
+import { QuickOpen, DevFlowSetupModal, RequirementsModal } from '@/components/modals';
+import { GlobalSearch } from '@/components/organisms/GlobalSearch';
+import { CommandPalette } from '@/components/organisms/CommandPalette';
 import { SettingsPanel } from '@/components/settings';
-import { DashboardPanel } from '@/components/dashboard/DashboardPanel';
-import { SpecsPanel } from '@/components/specs/SpecsPanel';
-import { AutopilotPanel } from '@/components/autopilot/AutopilotPanel';
-import { AutopilotConfigModal } from '@/components/autopilot/AutopilotConfigModal';
+import { DashboardPanel } from '@/components/organisms/Dashboard';
+import { SpecsPanel } from '@/components/organisms/SpecsPanel';
+import { AutopilotPanel } from '@/components/organisms/AutopilotProgress';
+import { AutopilotConfigModal } from '@/components/organisms/AutopilotConfig';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 // Project Selector Component

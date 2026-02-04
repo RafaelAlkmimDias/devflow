@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { api, DevFlowStatus } from '@/api';
+import { devflowApi } from '@/infrastructure/api';
+import type { DevFlowStatus } from '@shared/types';
 import { Zap, FolderTree, Bot, CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -28,7 +29,7 @@ export function DevFlowSetupModal({
   const handleSetup = async () => {
     setIsSettingUp(true);
     try {
-      const result = await api.setupDevFlow(projectPath);
+      const result = await devflowApi.setup(projectPath);
       if (result.success) {
         toast.success('DevFlow setup complete!', {
           description: 'All agents and configuration files have been installed.',

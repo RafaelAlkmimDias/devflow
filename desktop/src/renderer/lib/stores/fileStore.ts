@@ -2,13 +2,19 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { FileNode, OpenFile } from '@/lib/types';
 import { getExtension, getFileName, getLanguageFromExtension } from '@/lib/utils';
-import { api } from '@/api';
-
-const MAX_RECENT_FILES = 20;
-const MAX_HISTORY_SIZE = 50;
+import { fileApi } from '@/infrastructure/api';
+import {
+  convertTree,
+  sortOpenFiles,
+  addToHistory,
+  addToRecent,
+  addToClosedTabs,
+  getNextActiveFile,
+  getTabsToClose,
+} from './utils/fileStoreUtils';
 
 interface FileState {
-  // State
+  // Core state
   tree: FileNode | null;
   treeVersion: number;
   openFiles: OpenFile[];
@@ -26,7 +32,7 @@ interface FileState {
   recentFiles: string[];
   closedTabs: string[];
 
-  // Actions
+  // File operations
   loadTree: (projectPath: string) => Promise<void>;
   openFile: (path: string) => Promise<void>;
   closeFile: (path: string) => void;
@@ -36,6 +42,8 @@ interface FileState {
   createFile: (path: string, type: 'file' | 'directory', content?: string) => Promise<void>;
   deleteFile: (path: string) => Promise<void>;
   renameFile: (oldPath: string, newPath: string) => Promise<void>;
+
+  // Folder operations
   toggleFolder: (path: string) => void;
   setExpandedFolders: (paths: Set<string>) => void;
   setScrollToLine: (line: number | null) => void;
@@ -45,6 +53,8 @@ interface FileState {
   navigateForward: () => void;
   canGoBack: () => boolean;
   canGoForward: () => boolean;
+
+  // Tab management
   togglePinned: (path: string) => void;
   isPinned: (path: string) => boolean;
   getRecentFiles: () => string[];
@@ -55,20 +65,10 @@ interface FileState {
   copyPath: (path: string) => void;
 }
 
-// Helper to convert IPC file tree to FileNode
-function convertTree(nodes: { name: string; path: string; type: 'file' | 'directory'; children?: unknown[] }[]): FileNode[] {
-  return nodes.map(node => ({
-    name: node.name,
-    path: node.path,
-    type: node.type,
-    extension: node.type === 'file' ? getExtension(node.name) : undefined,
-    children: node.children ? convertTree(node.children as typeof nodes) : undefined,
-  }));
-}
-
 export const useFileStore = create<FileState>()(
   persist(
     (set, get) => ({
+      // Initial state
       tree: null,
       treeVersion: 0,
       openFiles: [],
@@ -78,19 +78,18 @@ export const useFileStore = create<FileState>()(
       isSaving: false,
       savingFile: null,
       scrollToLine: null,
-
-      // Navigation state
       pinnedFiles: [],
       tabHistory: [],
       historyIndex: -1,
       recentFiles: [],
       closedTabs: [],
 
+      // === File Operations ===
+
       loadTree: async (projectPath: string) => {
         set({ isLoading: true });
-
         try {
-          const treeData = await api.getFileTree(projectPath);
+          const treeData = await fileApi.getTree(projectPath);
           const root: FileNode = {
             name: projectPath.split('/').pop() || 'root',
             path: projectPath,
@@ -105,38 +104,21 @@ export const useFileStore = create<FileState>()(
       },
 
       openFile: async (path: string) => {
-        const { openFiles, pinnedFiles, tabHistory, historyIndex, recentFiles } = get();
+        const { openFiles, tabHistory, historyIndex, recentFiles } = get();
 
-        // Helper to add to history and recent
-        const addToNavigation = () => {
-          const newHistory = tabHistory.slice(0, historyIndex + 1);
-          newHistory.push(path);
-          if (newHistory.length > MAX_HISTORY_SIZE) {
-            newHistory.shift();
-          }
-
-          const newRecent = [path, ...recentFiles.filter((f) => f !== path)].slice(0, MAX_RECENT_FILES);
-
-          return {
-            tabHistory: newHistory,
-            historyIndex: newHistory.length - 1,
-            recentFiles: newRecent,
-          };
+        const navUpdate = {
+          ...addToHistory(path, tabHistory, historyIndex),
+          recentFiles: addToRecent(path, recentFiles),
         };
 
-        // Check if already open
-        const existing = openFiles.find((f) => f.path === path);
-        if (existing) {
-          set({
-            activeFile: path,
-            ...addToNavigation(),
-          });
+        // Already open - just activate
+        if (openFiles.find((f) => f.path === path)) {
+          set({ activeFile: path, ...navUpdate });
           return;
         }
 
         try {
-          const content = await api.readFile(path);
-
+          const content = await fileApi.read(path);
           const ext = getExtension(path);
           const newFile: OpenFile = {
             path,
@@ -147,98 +129,49 @@ export const useFileStore = create<FileState>()(
             language: getLanguageFromExtension(ext),
           };
 
-          set((state) => {
-            const newOpenFiles = [...state.openFiles, newFile];
-            // Sort: pinned first
-            newOpenFiles.sort((a, b) => {
-              const aPinned = state.pinnedFiles.includes(a.path);
-              const bPinned = state.pinnedFiles.includes(b.path);
-              if (aPinned && !bPinned) return -1;
-              if (!aPinned && bPinned) return 1;
-              return 0;
-            });
-
-            return {
-              openFiles: newOpenFiles,
-              activeFile: path,
-              ...addToNavigation(),
-            };
-          });
+          set((state) => ({
+            openFiles: sortOpenFiles([...state.openFiles, newFile], state.pinnedFiles),
+            activeFile: path,
+            ...navUpdate,
+          }));
         } catch (error) {
           console.error('Failed to open file:', error);
         }
       },
 
       closeFile: (path: string) => {
-        set((state) => {
-          const newOpenFiles = state.openFiles.filter((f) => f.path !== path);
-          let newActiveFile = state.activeFile;
-
-          if (state.activeFile === path) {
-            const index = state.openFiles.findIndex((f) => f.path === path);
-            if (newOpenFiles.length > 0) {
-              newActiveFile = newOpenFiles[Math.min(index, newOpenFiles.length - 1)].path;
-            } else {
-              newActiveFile = null;
-            }
-          }
-
-          const newClosedTabs = [path, ...state.closedTabs.filter((f) => f !== path)].slice(0, 10);
-          const newPinnedFiles = state.pinnedFiles.filter((f) => f !== path);
-
-          return {
-            openFiles: newOpenFiles,
-            activeFile: newActiveFile,
-            closedTabs: newClosedTabs,
-            pinnedFiles: newPinnedFiles,
-          };
-        });
+        set((state) => ({
+          openFiles: state.openFiles.filter((f) => f.path !== path),
+          activeFile: getNextActiveFile(path, state.openFiles, state.activeFile),
+          closedTabs: addToClosedTabs(path, state.closedTabs),
+          pinnedFiles: state.pinnedFiles.filter((f) => f !== path),
+        }));
       },
 
-      setActiveFile: (path: string | null) => {
-        set({ activeFile: path });
-      },
+      setActiveFile: (path: string | null) => set({ activeFile: path }),
 
       updateFileContent: (path: string, content: string) => {
         set((state) => ({
           openFiles: state.openFiles.map((f) =>
-            f.path === path
-              ? {
-                  ...f,
-                  content,
-                  isDirty: content !== f.originalContent,
-                }
-              : f
+            f.path === path ? { ...f, content, isDirty: content !== f.originalContent } : f
           ),
         }));
       },
 
       saveFile: async (path: string) => {
-        const { openFiles } = get();
-        const file = openFiles.find((f) => f.path === path);
-
+        const file = get().openFiles.find((f) => f.path === path);
         if (!file) return;
 
         set({ isSaving: true, savingFile: path });
-
         try {
-          await api.writeFile(path, file.content);
-
+          await fileApi.write(path, file.content);
           set((state) => ({
             openFiles: state.openFiles.map((f) =>
-              f.path === path
-                ? {
-                    ...f,
-                    originalContent: f.content,
-                    isDirty: false,
-                  }
-                : f
+              f.path === path ? { ...f, originalContent: f.content, isDirty: false } : f
             ),
             isSaving: false,
             savingFile: null,
           }));
-
-          console.log('File saved:', getFileName(path));
         } catch (error) {
           set({ isSaving: false, savingFile: null });
           console.error('Failed to save file:', error);
@@ -247,11 +180,10 @@ export const useFileStore = create<FileState>()(
 
       createFile: async (path: string, type: 'file' | 'directory', content?: string) => {
         try {
-          await api.createFile(path, type === 'directory');
+          await fileApi.create(path, type === 'directory');
           if (content && type === 'file') {
-            await api.writeFile(path, content);
+            await fileApi.write(path, content);
           }
-          console.log(`${type === 'directory' ? 'Folder' : 'File'} created:`, getFileName(path));
         } catch (error) {
           console.error('Failed to create file:', error);
         }
@@ -259,9 +191,8 @@ export const useFileStore = create<FileState>()(
 
       deleteFile: async (path: string) => {
         try {
-          await api.deleteFile(path);
+          await fileApi.delete(path);
           get().closeFile(path);
-          console.log('Deleted:', getFileName(path));
         } catch (error) {
           console.error('Failed to delete file:', error);
         }
@@ -269,61 +200,43 @@ export const useFileStore = create<FileState>()(
 
       renameFile: async (oldPath: string, newPath: string) => {
         try {
-          await api.renameFile(oldPath, newPath);
+          await fileApi.rename(oldPath, newPath);
+          const ext = getExtension(newPath);
 
-          const { openFiles, activeFile } = get();
-          const renamedFile = openFiles.find((f) => f.path === oldPath);
-
-          if (renamedFile) {
-            const ext = getExtension(newPath);
-            set({
-              openFiles: openFiles.map((f) =>
-                f.path === oldPath
-                  ? {
-                      ...f,
-                      path: newPath,
-                      name: getFileName(newPath),
-                      language: getLanguageFromExtension(ext),
-                    }
-                  : f
-              ),
-              activeFile: activeFile === oldPath ? newPath : activeFile,
-            });
-          }
-
-          console.log('Renamed:', `${getFileName(oldPath)} → ${getFileName(newPath)}`);
+          set((state) => ({
+            openFiles: state.openFiles.map((f) =>
+              f.path === oldPath
+                ? { ...f, path: newPath, name: getFileName(newPath), language: getLanguageFromExtension(ext) }
+                : f
+            ),
+            activeFile: state.activeFile === oldPath ? newPath : state.activeFile,
+          }));
         } catch (error) {
           console.error('Failed to rename file:', error);
         }
       },
 
+      // === Folder Operations ===
+
       toggleFolder: (path: string) => {
         set((state) => {
           const newExpanded = new Set(state.expandedFolders);
-          if (newExpanded.has(path)) {
-            newExpanded.delete(path);
-          } else {
-            newExpanded.add(path);
-          }
+          newExpanded.has(path) ? newExpanded.delete(path) : newExpanded.add(path);
           return { expandedFolders: newExpanded };
         });
       },
 
-      setExpandedFolders: (paths: Set<string>) => {
-        set({ expandedFolders: paths });
-      },
+      setExpandedFolders: (paths: Set<string>) => set({ expandedFolders: paths }),
 
-      setScrollToLine: (line: number | null) => {
-        set({ scrollToLine: line });
-      },
+      setScrollToLine: (line: number | null) => set({ scrollToLine: line }),
 
-      // Navigation actions
+      // === Navigation ===
+
       navigateBack: () => {
         const { tabHistory, historyIndex } = get();
         if (historyIndex > 0) {
           const newIndex = historyIndex - 1;
-          const path = tabHistory[newIndex];
-          set({ historyIndex: newIndex, activeFile: path });
+          set({ historyIndex: newIndex, activeFile: tabHistory[newIndex] });
         }
       },
 
@@ -331,113 +244,64 @@ export const useFileStore = create<FileState>()(
         const { tabHistory, historyIndex } = get();
         if (historyIndex < tabHistory.length - 1) {
           const newIndex = historyIndex + 1;
-          const path = tabHistory[newIndex];
-          set({ historyIndex: newIndex, activeFile: path });
+          set({ historyIndex: newIndex, activeFile: tabHistory[newIndex] });
         }
       },
 
-      canGoBack: () => {
-        const { historyIndex } = get();
-        return historyIndex > 0;
-      },
+      canGoBack: () => get().historyIndex > 0,
 
       canGoForward: () => {
         const { tabHistory, historyIndex } = get();
         return historyIndex < tabHistory.length - 1;
       },
 
+      // === Tab Management ===
+
       togglePinned: (path: string) => {
         set((state) => {
-          const isPinned = state.pinnedFiles.includes(path);
-          const newPinnedFiles = isPinned
+          const newPinnedFiles = state.pinnedFiles.includes(path)
             ? state.pinnedFiles.filter((f) => f !== path)
             : [...state.pinnedFiles, path];
-
-          const newOpenFiles = [...state.openFiles].sort((a, b) => {
-            const aPinned = newPinnedFiles.includes(a.path);
-            const bPinned = newPinnedFiles.includes(b.path);
-            if (aPinned && !bPinned) return -1;
-            if (!aPinned && bPinned) return 1;
-            return 0;
-          });
-
           return {
             pinnedFiles: newPinnedFiles,
-            openFiles: newOpenFiles,
+            openFiles: sortOpenFiles(state.openFiles, newPinnedFiles),
           };
         });
       },
 
-      isPinned: (path: string) => {
-        return get().pinnedFiles.includes(path);
-      },
+      isPinned: (path: string) => get().pinnedFiles.includes(path),
 
-      getRecentFiles: () => {
-        return get().recentFiles;
-      },
+      getRecentFiles: () => get().recentFiles,
 
       closeOtherTabs: (exceptPath: string) => {
-        const { openFiles, pinnedFiles } = get();
-
-        const tabsToClose = openFiles
-          .filter((f) => f.path !== exceptPath && !pinnedFiles.includes(f.path))
-          .map((f) => f.path);
-
-        tabsToClose.forEach((path) => {
-          get().closeFile(path);
-        });
+        const { openFiles, pinnedFiles, closeFile } = get();
+        getTabsToClose(openFiles, pinnedFiles, (f) => f.path !== exceptPath).forEach(closeFile);
       },
 
       closeTabsToRight: (path: string) => {
-        const { openFiles, pinnedFiles } = get();
+        const { openFiles, pinnedFiles, closeFile } = get();
         const index = openFiles.findIndex((f) => f.path === path);
-
-        if (index === -1) return;
-
-        const tabsToClose = openFiles
-          .slice(index + 1)
-          .filter((f) => !pinnedFiles.includes(f.path))
-          .map((f) => f.path);
-
-        tabsToClose.forEach((tabPath) => {
-          get().closeFile(tabPath);
-        });
+        if (index !== -1) {
+          getTabsToClose(openFiles, pinnedFiles, (_, i) => i > index).forEach(closeFile);
+        }
       },
 
       closeAllTabs: () => {
-        const { openFiles, pinnedFiles } = get();
-
-        const tabsToClose = openFiles
-          .filter((f) => !pinnedFiles.includes(f.path))
-          .map((f) => f.path);
-
-        tabsToClose.forEach((path) => {
-          get().closeFile(path);
-        });
+        const { openFiles, pinnedFiles, closeFile } = get();
+        getTabsToClose(openFiles, pinnedFiles, () => true).forEach(closeFile);
       },
 
       reopenClosedTab: () => {
         const { closedTabs, openFile } = get();
-
-        if (closedTabs.length === 0) {
-          return;
+        if (closedTabs.length > 0) {
+          const pathToReopen = closedTabs[0];
+          set((state) => ({ closedTabs: state.closedTabs.slice(1) }));
+          openFile(pathToReopen);
         }
-
-        const pathToReopen = closedTabs[0];
-
-        set((state) => ({
-          closedTabs: state.closedTabs.slice(1),
-        }));
-
-        openFile(pathToReopen);
       },
 
       copyPath: (path: string) => {
-        navigator.clipboard.writeText(path).then(() => {
-          console.log('Path copied:', path);
-        }).catch(() => {
-          console.error('Failed to copy path');
-        });
+        navigator.clipboard.writeText(path).catch(() => console.error('Failed to copy path'));
       },
     }),
     {

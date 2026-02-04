@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Spec, Requirement, DesignDecision, Task, SpecPhase } from '@/lib/types';
-import { api } from '@/api';
+import { specsApi } from '@/infrastructure/api';
 
 // Progress info for a spec
 export interface SpecProgress {
@@ -50,7 +50,7 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
 
     try {
       // Load specs from all project directories (docs/planning, docs/decisions, etc.)
-      const specsData = await api.parseSpecs(projectPath);
+      const specsData = await specsApi.parse(projectPath);
 
       // Separate by type
       const specs: Spec[] = [];
@@ -198,7 +198,7 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
 
     try {
       // Update the file
-      const success = await api.updateTaskStatus(
+      const success = await specsApi.updateTaskStatus(
         task.filePath,
         task.title,
         status === 'completed'

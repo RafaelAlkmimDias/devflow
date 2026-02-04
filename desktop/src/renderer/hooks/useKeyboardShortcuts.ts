@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { useFileStore } from '@/lib/stores/fileStore';
 import { useSettingsStore } from '@/lib/stores/settingsStore';
-import { api } from '@/api';
+import { appApi } from '@/infrastructure/api';
 
 export function useKeyboardShortcuts() {
   const { openModal, activeModal, closeModal, toggleSidebar, toggleTerminal, togglePreview } = useUIStore();
@@ -20,7 +20,7 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac = api.platform === 'darwin';
+      const isMac = appApi.platform === 'darwin';
       const modKey = isMac ? e.metaKey : e.ctrlKey;
 
       // Don't trigger shortcuts when typing in inputs

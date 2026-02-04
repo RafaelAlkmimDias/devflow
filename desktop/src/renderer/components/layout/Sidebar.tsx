@@ -1,4 +1,4 @@
-import { FileExplorer } from '@/components/explorer/FileExplorer';
+import { FileExplorer } from '@/components/organisms/FileExplorer';
 
 export function Sidebar() {
   return (
