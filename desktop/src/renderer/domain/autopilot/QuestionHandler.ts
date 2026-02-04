@@ -1,64 +1,54 @@
 /**
- * Question patterns in Portuguese and English for detecting agent questions.
- * These patterns are used to detect when an agent is asking for user input.
+ * Agent status markers - explicit signals from agents about whether to proceed or wait.
+ * All agents MUST return one of these markers at the end of their response.
  */
-const QUESTION_PATTERNS = [
-  // Portuguese patterns
-  /deseja\s+(que|continuar|esclarecer|saber|algum)/i,
-  /gostaria\s+(de|que)/i,
-  /quer\s+(que|saber|algum)/i,
-  /precisa\s+(de|que|algum)/i,
-  /posso\s+(continuar|prosseguir|esclarecer|chamar)/i,
-  /devo\s+(continuar|prosseguir)/i,
-  /confirmar\s+(se|que|os|as)/i,
-  /algum(a)?\s+(desses|dessas|dúvida|pergunta)/i,
-  /esclareça\s+algum/i,
-  /chamar\s+o\s+@/i,
-  /próximos?\s+passos?/i,
+const STATUS_MARKERS = {
+  READY_TO_PROCEED: /\[STATUS:\s*READY_TO_PROCEED\]/i,
+  AWAITING_INPUT: /\[STATUS:\s*AWAITING_INPUT\]/i,
+}
 
-  // English patterns
-  /would\s+you\s+like/i,
-  /do\s+you\s+want/i,
-  /should\s+i/i,
-  /shall\s+i/i,
-  /can\s+i/i,
-]
+/**
+ * Detect agent status marker in output.
+ * Returns: 'ready' | 'awaiting' | null
+ */
+export function detectAgentStatus(output: string): 'ready' | 'awaiting' | null {
+  if (!output) return null
+
+  // Check last 300 chars for status marker (should be at the end)
+  const recentOutput = output.slice(-300)
+
+  if (STATUS_MARKERS.AWAITING_INPUT.test(recentOutput)) {
+    console.log('[QuestionHandler] Status marker detected: AWAITING_INPUT')
+    return 'awaiting'
+  }
+
+  if (STATUS_MARKERS.READY_TO_PROCEED.test(recentOutput)) {
+    console.log('[QuestionHandler] Status marker detected: READY_TO_PROCEED')
+    return 'ready'
+  }
+
+  return null
+}
 
 /**
  * Detect if output ends with a question requiring user input.
- * Analyzes the last few lines of output for question marks and patterns.
+ * Agents MUST include [STATUS: READY_TO_PROCEED] or [STATUS: AWAITING_INPUT] marker.
+ *
+ * Returns true if agent needs user input (AWAITING_INPUT).
+ * Returns false if agent is ready to proceed or no marker found.
  */
 export function outputEndsWithQuestion(output: string): boolean {
   if (!output) return false
 
-  // Get the last meaningful lines (ignoring empty lines at the end)
-  const lines = output.trim().split('\n').filter(line => line.trim())
-  if (lines.length === 0) return false
+  const agentStatus = detectAgentStatus(output)
 
-  // Get last 10 lines for analysis
-  const lastLines = lines.slice(-10)
-  const lastLinesText = lastLines.join('\n').toLowerCase()
-
-  // Check if any of the last 5 lines ends with a question mark
-  const lastFiveLines = lines.slice(-5)
-  const hasQuestionMark = lastFiveLines.some(line => {
-    const trimmed = line.trim()
-    // Remove markdown formatting at the end
-    const cleaned = trimmed.replace(/[\*_`]+$/, '').trim()
-    return cleaned.endsWith('?')
-  })
-
-  if (hasQuestionMark) {
-    console.log('[QuestionHandler] Question detected: line ends with ?')
+  if (agentStatus === 'awaiting') {
+    console.log('[QuestionHandler] Agent signaled AWAITING_INPUT - waiting for user')
     return true
   }
 
-  // Check for common question patterns
-  const hasQuestionPattern = QUESTION_PATTERNS.some(pattern => pattern.test(lastLinesText))
-
-  if (hasQuestionPattern) {
-    console.log('[QuestionHandler] Question detected: pattern match')
-    return true
+  if (agentStatus === 'ready') {
+    console.log('[QuestionHandler] Agent signaled READY_TO_PROCEED - continuing')
   }
 
   return false
