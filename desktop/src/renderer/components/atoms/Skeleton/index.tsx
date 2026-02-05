@@ -4,5 +4,9 @@ export {
   SkeletonText,
   SkeletonCard,
   SkeletonList,
-  SkeletonTree
+  SkeletonTree,
+  SkeletonTaskCard,
+  SkeletonSpecsList,
+  SkeletonStatCard,
+  SkeletonChatMessage,
 } from '../../ui/Skeleton'

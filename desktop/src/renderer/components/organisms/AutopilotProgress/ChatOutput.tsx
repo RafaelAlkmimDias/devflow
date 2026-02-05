@@ -62,7 +62,7 @@ export function ChatOutput({ output, agentId, isMaximized, shouldFillSpace }: Ch
 
   if (messages.length === 0) {
     return (
-      <div className="text-xs text-gray-500 italic p-4">
+      <div className="text-xs text-gray-500 italic p-4 text-center">
         No output yet...
       </div>
     );
@@ -71,7 +71,7 @@ export function ChatOutput({ output, agentId, isMaximized, shouldFillSpace }: Ch
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 p-3 overflow-y-auto',
+        'flex flex-col gap-4 p-3 overflow-y-auto',
         shouldFillSpace ? 'flex-1 min-h-0' : (isMaximized ? 'max-h-[400px]' : 'max-h-60')
       )}
     >
@@ -79,45 +79,58 @@ export function ChatOutput({ output, agentId, isMaximized, shouldFillSpace }: Ch
         <div
           key={index}
           className={cn(
-            'flex gap-2',
+            'flex gap-3 animate-fade-in',
             message.type === 'user' ? 'flex-row-reverse' : 'flex-row'
           )}
         >
-          {/* Avatar */}
+          {/* Avatar - Larger and more prominent */}
           <div
             className={cn(
-              'flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs',
+              'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-lg',
               message.type === 'user'
-                ? 'bg-blue-500/20 text-blue-400'
-                : 'bg-purple-500/20 text-purple-400'
+                ? 'bg-gradient-to-br from-blue-500/30 to-blue-600/20 text-blue-300 ring-2 ring-blue-500/30'
+                : 'bg-gradient-to-br from-purple-500/30 to-purple-600/20 text-purple-300 ring-2 ring-purple-500/30'
             )}
           >
             {message.type === 'user' ? (
               <User className="w-4 h-4" />
             ) : (
-              <span>{agent.icon}</span>
+              <span className="text-base">{agent.icon}</span>
             )}
           </div>
 
-          {/* Message bubble */}
+          {/* Message bubble - Enhanced styling */}
           <div
             className={cn(
-              'flex-1 max-w-[85%] rounded-lg px-3 py-2',
+              'flex-1 max-w-[85%] rounded-xl px-4 py-3 shadow-md',
               message.type === 'user'
-                ? 'bg-blue-500/10 border border-blue-500/20 ml-auto'
-                : 'bg-white/5 border border-white/10'
+                ? 'chat-bubble-user ml-auto'
+                : 'chat-bubble-agent'
             )}
           >
-            {/* Header */}
+            {/* Header with better visual separation */}
             <div className={cn(
-              'text-[10px] font-medium mb-1',
-              message.type === 'user' ? 'text-blue-400 text-right' : agent.color
+              'text-[11px] font-semibold mb-2 flex items-center gap-2',
+              message.type === 'user' ? 'text-blue-300 justify-end' : agent.color
             )}>
-              {message.type === 'user' ? 'Você' : `@${agentId}`}
+              {message.type === 'user' ? (
+                <>
+                  <span>Você</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                </>
+              ) : (
+                <>
+                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                  <span>@{agentId}</span>
+                </>
+              )}
             </div>
 
-            {/* Content */}
-            <pre className="text-xs text-gray-300 whitespace-pre-wrap break-words font-sans leading-relaxed">
+            {/* Content with better typography */}
+            <pre className={cn(
+              'text-[13px] whitespace-pre-wrap break-words font-sans leading-relaxed',
+              message.type === 'user' ? 'text-blue-100' : 'text-gray-200'
+            )}>
               {message.content}
             </pre>
           </div>

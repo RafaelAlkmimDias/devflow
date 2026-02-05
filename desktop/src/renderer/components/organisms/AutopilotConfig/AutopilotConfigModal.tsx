@@ -125,7 +125,7 @@ export function AutopilotConfigModal({ projectPath }: AutopilotConfigModalProps)
         aria-labelledby="autopilot-modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-purple-500/10 to-blue-500/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 gradient-header-purple">
           <div className="flex items-center gap-2">
             <Rocket className="w-5 h-5 text-purple-400" aria-hidden="true" />
             <h2 id="autopilot-modal-title" className="text-lg font-semibold text-white">

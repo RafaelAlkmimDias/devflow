@@ -5,6 +5,7 @@ import { useSpecsStore } from '@/lib/stores/specsStore';
 import { useFileStore } from '@/lib/stores/fileStore';
 import { useAutopilotStore } from '@/lib/stores/autopilotStore';
 import { cn } from '@/lib/utils';
+import { SkeletonSpecsList } from '@/components/atoms/Skeleton';
 import { RequirementsView } from './RequirementsView';
 import { DesignView } from './DesignView';
 import { TasksView } from './TasksView';
@@ -150,8 +151,8 @@ export function SpecsPanel({ projectPath }: SpecsPanelProps) {
         aria-labelledby={`${activePhase}-tab`}
       >
         {isLoading ? (
-          <div className="h-full flex items-center justify-center" aria-label="Loading specs">
-            <RefreshCw className="w-6 h-6 animate-spin text-purple-400" aria-hidden="true" />
+          <div aria-label="Loading specs">
+            <SkeletonSpecsList items={4} />
           </div>
         ) : (
           <>

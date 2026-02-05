@@ -71,9 +71,9 @@ export function RequirementCard({
   };
 
   const getBorderClass = () => {
-    if (progress.status === 'completed') return 'border-green-500/30 bg-green-500/5';
-    if (progress.status === 'in_progress') return 'border-blue-500/30 bg-blue-500/5';
-    return 'border-white/10';
+    if (progress.status === 'completed') return 'border-green-500/30 bg-gradient-to-r from-green-500/10 to-green-500/5 hover:from-green-500/15 hover:to-green-500/8';
+    if (progress.status === 'in_progress') return 'border-blue-500/30 bg-gradient-to-r from-blue-500/10 to-blue-500/5 hover:from-blue-500/15 hover:to-blue-500/8';
+    return 'border-white/10 hover:border-white/20';
   };
 
   const handleAutopilotClick = (e: React.MouseEvent) => {
@@ -141,9 +141,9 @@ export function RequirementCard({
       ref={cardRef}
       onClick={onClick}
       className={cn(
-        'p-2 sm:p-3 bg-white/5 border rounded-lg hover:border-purple-500/30 hover:bg-white/[0.07] transition-all cursor-pointer group',
+        'p-2 sm:p-3 bg-white/5 border rounded-lg hover:border-purple-500/30 transition-all duration-200 cursor-pointer group card-interactive',
         getBorderClass(),
-        isSelected && 'ring-1 ring-inset ring-purple-500/50'
+        isSelected && 'ring-1 ring-inset ring-purple-500/50 shadow-lg shadow-purple-500/10'
       )}
       role="option"
       aria-selected={isSelected}

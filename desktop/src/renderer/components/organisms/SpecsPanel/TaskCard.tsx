@@ -29,10 +29,10 @@ export function TaskCard({ task, onToggle, onViewFile }: TaskCardProps) {
   const isBlocked = task.status === 'blocked';
 
   const getStatusStyles = () => {
-    if (isCompleted) return 'bg-green-500/5 border-green-500/20';
-    if (isInProgress) return 'bg-blue-500/10 border-blue-500/30';
-    if (isBlocked) return 'bg-red-500/5 border-red-500/20 opacity-60';
-    return 'bg-white/5 border-white/10 hover:border-white/20';
+    if (isCompleted) return 'bg-green-500/5 border-green-500/20 hover:bg-green-500/10 hover:border-green-500/30';
+    if (isInProgress) return 'bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/15 hover:border-blue-500/40 animate-pulse-glow';
+    if (isBlocked) return 'bg-red-500/5 border-red-500/20 opacity-60 hover:opacity-80';
+    return 'bg-white/5 border-white/10 hover:bg-white/8 hover:border-white/20 hover:shadow-lg hover:shadow-black/20';
   };
 
   const handleViewFile = () => {
@@ -44,7 +44,7 @@ export function TaskCard({ task, onToggle, onViewFile }: TaskCardProps) {
   return (
     <div
       className={cn(
-        'p-2 sm:p-3 border rounded-lg transition-all group',
+        'p-2 sm:p-3 border rounded-lg transition-all duration-200 group card-interactive',
         getStatusStyles()
       )}
     >

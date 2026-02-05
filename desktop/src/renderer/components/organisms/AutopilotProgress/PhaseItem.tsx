@@ -111,14 +111,15 @@ export function PhaseItem({
   return (
     <div
       className={cn(
-        'border-b border-white/5 last:border-0',
-        isCurrent && phase.status === 'running' && 'bg-purple-500/5',
+        'border-b border-white/5 last:border-0 transition-all duration-300',
+        isCurrent && phase.status === 'running' && 'bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-transparent border-l-2 border-l-purple-500',
+        phase.status === 'completed' && 'bg-gradient-to-r from-green-500/5 to-transparent',
         shouldFillSpace && 'flex-1 flex flex-col min-h-0'
       )}
     >
       <button
         onClick={onToggle}
-        className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-white/5 transition-colors"
+        className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-white/5 transition-all duration-200"
         disabled={!hasOutput}
       >
         {getStatusIcon()}
