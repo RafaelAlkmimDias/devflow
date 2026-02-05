@@ -21,6 +21,15 @@ const AGENT_PROMPTS: Record<AgentId, { role: string; focus: string[] }> = {
       'Technical constraints',
     ],
   },
+  designer: {
+    role: 'Designer agent, create the visual experience and UX',
+    focus: [
+      'Design system and visual identity',
+      'Component styling and states',
+      'Animations and micro-interactions',
+      'Accessibility and usability',
+    ],
+  },
   builder: {
     role: 'Builder agent, implement the solution',
     focus: [

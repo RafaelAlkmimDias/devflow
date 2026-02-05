@@ -90,7 +90,7 @@ export interface ProjectInfo {
 }
 
 // Agent types
-export type AgentType = 'strategist' | 'architect' | 'builder' | 'guardian' | 'chronicler'
+export type AgentType = 'strategist' | 'architect' | 'designer' | 'builder' | 'guardian' | 'chronicler'
 
 export interface AgentExecution {
   agent: AgentType

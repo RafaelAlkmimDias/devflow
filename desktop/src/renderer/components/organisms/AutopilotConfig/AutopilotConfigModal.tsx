@@ -12,7 +12,8 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 const AGENTS: { id: AgentId; icon: string; name: string; description: string }[] = [
   { id: 'strategist', icon: '📊', name: 'Planning', description: 'Refines requirements and creates acceptance criteria' },
-  { id: 'architect', icon: '🏗️', name: 'Design', description: 'Defines architecture and technical decisions' },
+  { id: 'architect', icon: '🏗️', name: 'Architecture', description: 'Defines architecture and technical decisions' },
+  { id: 'designer', icon: '🎨', name: 'UX/UI Design', description: 'Creates visual identity, design system and animations' },
   { id: 'builder', icon: '🔨', name: 'Implementation', description: 'Implements code and creates files' },
   { id: 'guardian', icon: '🛡️', name: 'Validation', description: 'Reviews security and quality' },
   { id: 'chronicler', icon: '📝', name: 'Documentation', description: 'Updates documentation' },
@@ -98,6 +99,7 @@ export function AutopilotConfigModal({ projectPath }: AutopilotConfigModalProps)
     const times: Record<AgentId, number> = {
       strategist: 2,
       architect: 5,
+      designer: 4,
       builder: 10,
       guardian: 5,
       chronicler: 2,

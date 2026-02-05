@@ -48,7 +48,8 @@ export interface SpecPhaseHistory {
  */
 export const DEFAULT_PHASES: PhaseInfo[] = [
   { id: 'strategist', name: 'Planning' },
-  { id: 'architect', name: 'Design' },
+  { id: 'architect', name: 'Architecture' },
+  { id: 'designer', name: 'UX/UI Design' },
   { id: 'builder', name: 'Implementation' },
   { id: 'guardian', name: 'Validation' },
   { id: 'chronicler', name: 'Documentation' },
@@ -58,10 +59,10 @@ export const DEFAULT_PHASES: PhaseInfo[] = [
  * Default workflow configuration
  */
 export const DEFAULT_CONFIG: AutopilotConfig = {
-  phases: ['strategist', 'architect', 'builder', 'guardian', 'chronicler'],
+  phases: ['strategist', 'architect', 'designer', 'builder', 'guardian', 'chronicler'],
 }
 
 /**
  * Agent order for determining next agent
  */
-export const AGENT_ORDER: AgentId[] = ['strategist', 'architect', 'builder', 'guardian', 'chronicler']
+export const AGENT_ORDER: AgentId[] = ['strategist', 'architect', 'designer', 'builder', 'guardian', 'chronicler']

@@ -6,6 +6,7 @@ import { AgentType } from '../../../shared/types'
 export const AGENT_SKILLS: Record<AgentType, string> = {
   strategist: '/agents:strategist',
   architect: '/agents:architect',
+  designer: '/agents:designer',
   builder: '/agents:builder',
   guardian: '/agents:guardian',
   chronicler: '/agents:chronicler',
