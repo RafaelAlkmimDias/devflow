@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import {
   CheckCircle2,
   Circle,
@@ -7,8 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   SkipForward,
-  MessageCircle,
-  Send,
   Copy,
   Check,
 } from 'lucide-react';
@@ -26,7 +24,7 @@ interface PhaseItemProps {
   isMaximized?: boolean;
   shouldFillSpace?: boolean;
   formatDuration: (ms?: number) => string;
-  onContinue: (phaseIndex: number, userResponse: string) => Promise<void>;
+  onContinue?: (phaseIndex: number, userResponse: string) => Promise<void>;
   isRunning: boolean;
 }
 
@@ -39,15 +37,10 @@ export function PhaseItem({
   isMaximized,
   shouldFillSpace,
   formatDuration,
-  onContinue,
   isRunning,
 }: PhaseItemProps) {
   const agent = AGENT_INFO[phase.agent];
   const [copied, setCopied] = useState(false);
-  const [showResponseInput, setShowResponseInput] = useState(false);
-  const [responseText, setResponseText] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const responseInputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleCopyOutput = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -61,37 +54,7 @@ export function PhaseItem({
     }
   };
 
-  const handleToggleResponse = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowResponseInput(!showResponseInput);
-    if (!showResponseInput) {
-      setTimeout(() => responseInputRef.current?.focus(), 100);
-    }
-  };
-
-  const handleSendContinuation = async () => {
-    if (!responseText.trim() || isSending) return;
-    setIsSending(true);
-    try {
-      await onContinue(phaseIndex, responseText.trim());
-      setResponseText('');
-      setShowResponseInput(false);
-    } catch (err) {
-      console.error('Failed to continue phase:', err);
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleSendContinuation();
-    }
-  };
-
   const hasOutput = phase.output && phase.output.length > 0;
-  const canRespond = phase.status === 'completed' && hasOutput && !isRunning;
 
   const getStatusIcon = () => {
     switch (phase.status) {
@@ -153,40 +116,23 @@ export function PhaseItem({
         )}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] text-gray-500 uppercase tracking-wider">Output</span>
-            <div className="flex items-center gap-2">
-              {canRespond && (
-                <button
-                  onClick={handleToggleResponse}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-colors",
-                    showResponseInput
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "text-gray-400 hover:text-white hover:bg-white/10"
-                  )}
-                  title="Responder ao agente"
-                >
-                  <MessageCircle className="w-3 h-3" />
-                  <span>Responder</span>
-                </button>
+            <button
+              onClick={handleCopyOutput}
+              className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+              title={copied ? 'Copiado!' : 'Copiar output'}
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3 text-green-400" />
+                  <span className="text-green-400">Copiado</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" />
+                  <span>Copiar</span>
+                </>
               )}
-              <button
-                onClick={handleCopyOutput}
-                className="flex items-center gap-1 px-2 py-0.5 text-[10px] text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
-                title={copied ? 'Copiado!' : 'Copiar output'}
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-3 h-3 text-green-400" />
-                    <span className="text-green-400">Copiado</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3 h-3" />
-                    <span>Copiar</span>
-                  </>
-                )}
-              </button>
-            </div>
+            </button>
           </div>
           <ChatOutput
             output={phase.output || ''}
@@ -194,55 +140,6 @@ export function PhaseItem({
             isMaximized={isMaximized}
             shouldFillSpace={shouldFillSpace}
           />
-
-          {/* Response input for continuing conversation */}
-          {showResponseInput && canRespond && (
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <div className="flex items-center gap-2 mb-2">
-                <MessageCircle className="w-4 h-4 text-purple-400" />
-                <span className="text-xs text-purple-400 font-medium">Continuar conversa com o agente</span>
-              </div>
-              <textarea
-                ref={responseInputRef}
-                value={responseText}
-                onChange={(e) => setResponseText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Digite sua resposta... (Cmd/Ctrl + Enter para enviar)"
-                className="w-full px-3 py-2 bg-black/40 border border-purple-500/30 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 resize-none"
-                rows={3}
-                disabled={isSending}
-              />
-              <div className="flex justify-end gap-2 mt-2">
-                <button
-                  onClick={() => {
-                    setShowResponseInput(false);
-                    setResponseText('');
-                  }}
-                  className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors"
-                  disabled={isSending}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSendContinuation}
-                  disabled={!responseText.trim() || isSending}
-                  className="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 text-xs rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                >
-                  {isSending ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Enviando...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-3 h-3" />
-                      Enviar
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

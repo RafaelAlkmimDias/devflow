@@ -143,6 +143,7 @@ Para chamar Strategist: Use Skill tool com skill="agents:strategist"
 Para chamar Architect:  Use Skill tool com skill="agents:architect"
 Para chamar Guardian:   Use Skill tool com skill="agents:guardian"
 Para chamar Chronicler: Use Skill tool com skill="agents:chronicler"
+Para chamar Designer:   Use Skill tool com skill="agents:designer"
 ```
 
 **IMPORTANTE**: Não apenas mencione "@guardian" no texto. USE a Skill tool para invocar o agente!
@@ -1298,6 +1299,18 @@ Se story está vaga, peço clarificação.
 ### Com @architect
 Sigo design técnico rigorosamente.
 Se vejo problema no design, discuto antes de implementar.
+
+### Com @designer
+Sigo specs visuais do design system:
+- Uso tokens de cores, tipografia, espaçamento
+- Implemento animações conforme especificado
+- Respeito guidelines de acessibilidade
+- Se specs visuais estão vagas, solicito clarificação
+
+**Exemplo:**
+```
+@designer Preciso de specs para o componente de Toast notification
+```
 
 ### Com @guardian
 Escrevo testes junto com código.

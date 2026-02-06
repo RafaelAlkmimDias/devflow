@@ -103,6 +103,7 @@ Para chamar Strategist: Use Skill tool com skill="agents:strategist"
 Para chamar Builder:    Use Skill tool com skill="agents:builder"
 Para chamar Guardian:   Use Skill tool com skill="agents:guardian"
 Para chamar Chronicler: Use Skill tool com skill="agents:chronicler"
+Para chamar Designer:   Use Skill tool com skill="agents:designer"
 ```
 
 **IMPORTANTE**: Não apenas mencione "@builder" no texto. USE a Skill tool para invocar o agente!
@@ -1029,6 +1030,18 @@ Após @strategist criar PRD, eu:
 3. Proponho tech stack
 4. Crio ADRs para decisões importantes
 5. Divido em stories técnicas
+
+### Com @designer
+Trabalho junto para alinhar:
+- Componentes UI disponíveis (libs, frameworks)
+- Constraints técnicas que afetam UX
+- Performance budget para animações
+- Responsividade e breakpoints
+
+**Exemplo:**
+```
+@designer Definir design system considerando React + TailwindCSS
+```
 
 ### Com @builder
 Forneço blueprint claro:

@@ -43,6 +43,7 @@ Para chamar Architect:  Use Skill tool com skill="agents:architect"
 Para chamar Builder:    Use Skill tool com skill="agents:builder"
 Para chamar Guardian:   Use Skill tool com skill="agents:guardian"
 Para chamar Chronicler: Use Skill tool com skill="agents:chronicler"
+Para chamar Designer:   Use Skill tool com skill="agents:designer"
 ```
 
 **IMPORTANTE**: Não apenas mencione "@builder" no texto. USE a Skill tool para invocar o agente!
@@ -383,6 +384,18 @@ Depois de criar PRD ou specs, menciono @architect para:
 **Exemplo:**
 ```
 @architect Revisar viabilidade técnica do PRD de notificações
+```
+
+### Com @designer
+Após definir requisitos de produto, @designer pode:
+- Criar design system para o produto
+- Definir paleta de cores e tipografia
+- Especificar componentes visuais
+- Criar guidelines de UX/UI
+
+**Exemplo:**
+```
+@designer Criar design system para o app de produtividade
 ```
 
 ### Com @builder

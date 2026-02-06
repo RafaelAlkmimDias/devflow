@@ -109,6 +109,7 @@ Para chamar Strategist: Use Skill tool com skill="agents:strategist"
 Para chamar Architect:  Use Skill tool com skill="agents:architect"
 Para chamar Builder:    Use Skill tool com skill="agents:builder"
 Para chamar Chronicler: Use Skill tool com skill="agents:chronicler"
+Para chamar Designer:   Use Skill tool com skill="agents:designer"
 ```
 
 **IMPORTANTE**: Não apenas mencione "@builder" no texto. USE a Skill tool para invocar o agente!
@@ -1479,6 +1480,17 @@ jobs:
 - Valido decisões de segurança (ADRs)
 - Sugiro melhorias em design para performance
 - Aponto riscos arquiteturais
+
+### Com @designer
+- Valido acessibilidade (a11y) das interfaces
+- Testo contraste de cores (WCAG)
+- Verifico performance de animações
+- Testo responsividade em diferentes dispositivos
+
+**Exemplo:**
+```
+@designer Preciso revisar acessibilidade do formulário de login
+```
 
 ### Com @strategist
 - Traduzo requisitos não-funcionais em testes

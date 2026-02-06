@@ -3,7 +3,7 @@
 agent:
   id: "architect"
   name: "Architect"
-  version: "1.1.0"
+  version: "1.2.0"
   role: "design"
 
 identity:

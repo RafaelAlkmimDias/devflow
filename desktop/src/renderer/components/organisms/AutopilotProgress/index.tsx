@@ -5,9 +5,8 @@ import { agentApi } from '@/infrastructure/api';
 import type { AutopilotStreamData } from '@shared/types';
 import { AutopilotHeader } from './AutopilotHeader';
 import { AutopilotFooter } from './AutopilotFooter';
-import { AwaitingInputPanel } from './AwaitingInputPanel';
 import { PhaseItem } from './PhaseItem';
-import { MessageCircle, Send } from 'lucide-react';
+import { MessageCircle, Send, Loader2, SkipForward } from 'lucide-react';
 
 export function AutopilotProgress() {
   const store = useAutopilotStore();
@@ -232,12 +231,26 @@ export function AutopilotProgress() {
         </div>
       )}
 
-      {/* Response Input - shown when agent asks a question */}
-      {waitingForResponse && !isMinimized && (
-        <div className="px-3 py-3 bg-yellow-500/10 border-t border-yellow-500/20">
-          <div className="flex items-center gap-2 mb-2">
-            <MessageCircle className="w-4 h-4 text-yellow-400" />
-            <span className="text-xs text-yellow-400 font-medium">Agent is waiting for your response</span>
+      {/* Response Input - shown when agent asks a question or awaiting input */}
+      {(waitingForResponse || isAwaitingInput) && !isMinimized && (
+        <div className="px-3 py-3 bg-amber-500/10 border-t border-amber-500/20">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="w-4 h-4 text-amber-400" />
+              <span className="text-xs text-amber-400 font-medium">
+                {waitingForResponse ? 'Agente aguardando sua resposta' : 'Agente terminou com pendência'}
+              </span>
+            </div>
+            {isAwaitingInput && !waitingForResponse && (
+              <button
+                onClick={handleSkipToNext}
+                disabled={isSkipping}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors disabled:opacity-50"
+              >
+                {isSkipping ? <Loader2 className="w-3 h-3 animate-spin" /> : <SkipForward className="w-3 h-3" />}
+                Pular
+              </button>
+            )}
           </div>
           <div className="flex gap-2">
             <input
@@ -246,29 +259,19 @@ export function AutopilotProgress() {
               value={responseInput}
               onChange={(e) => setResponseInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type your response and press Enter..."
-              className="flex-1 px-3 py-2 bg-black/40 border border-yellow-500/30 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50"
+              placeholder="Digite sua resposta e pressione Enter..."
+              className="flex-1 px-3 py-2 bg-black/40 border border-amber-500/30 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
             />
             <button
               onClick={handleSendResponse}
               disabled={!responseInput.trim()}
-              className="px-3 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Send response"
+              className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Enviar resposta"
             >
               <Send className="w-4 h-4" />
             </button>
           </div>
         </div>
-      )}
-
-      {/* Awaiting Input - show when paused for question */}
-      {isAwaitingInput && !isMinimized && (
-        <AwaitingInputPanel
-          phases={phases}
-          isSkipping={isSkipping}
-          onExpandPhase={(index) => setExpandedPhase(index)}
-          onSkipToNext={handleSkipToNext}
-        />
       )}
 
       {/* Footer Stats - hidden when minimized */}

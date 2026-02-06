@@ -154,6 +154,7 @@ Para chamar Strategist: Use Skill tool com skill="agents:strategist"
 Para chamar Architect:  Use Skill tool com skill="agents:architect"
 Para chamar Builder:    Use Skill tool com skill="agents:builder"
 Para chamar Guardian:   Use Skill tool com skill="agents:guardian"
+Para chamar Designer:   Use Skill tool com skill="agents:designer"
 ```
 
 **IMPORTANTE**: Não apenas mencione "@builder" no texto. USE a Skill tool para invocar o agente!
@@ -645,6 +646,12 @@ Todas as decisões técnicas viram ADRs:
 - Tech stack choices
 - Pattern selections
 - Trade-offs
+
+### Com @designer
+Documento decisões de design e visual:
+- Design system versionado
+- Mudanças de paleta/tipografia registradas
+- Guidelines de UI atualizadas
 
 ### Com @builder
 Cada implementação é documentada:

@@ -9,7 +9,7 @@ import { SkeletonSpecsList } from '@/components/atoms/Skeleton';
 import { RequirementsView } from './RequirementsView';
 import { DesignView } from './DesignView';
 import { TasksView } from './TasksView';
-import { CreateSpecModal } from './CreateSpecModal';
+import { PlanningChatModal } from './PlanningChatModal';
 
 interface SpecsPanelProps {
   projectPath: string;
@@ -183,11 +183,10 @@ export function SpecsPanel({ projectPath }: SpecsPanelProps) {
         )}
       </div>
 
-      {/* Create Modal */}
+      {/* Planning Chat Modal */}
       {showCreateModal && (
-        <CreateSpecModal
+        <PlanningChatModal
           projectPath={projectPath}
-          activePhase={activePhase}
           onClose={() => setShowCreateModal(false)}
         />
       )}

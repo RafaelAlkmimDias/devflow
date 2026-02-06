@@ -26,7 +26,7 @@ export interface DevFlowStatus {
   outdatedAgents: AgentVersionInfo[]
 }
 
-const AGENT_IDS = ['strategist', 'architect', 'builder', 'guardian', 'chronicler'] as const
+const AGENT_IDS = ['strategist', 'architect', 'designer', 'builder', 'guardian', 'chronicler'] as const
 
 /**
  * Service responsible for DevFlow project setup and validation.
