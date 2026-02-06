@@ -71,6 +71,12 @@ export interface ElectronAPI {
   getVersion: () => Promise<string>
   openExternal: (url: string) => Promise<void>
 
+  // Notifications
+  notifyCompleted: (agentName?: string) => Promise<void>
+  notifyFailed: (error?: string) => Promise<void>
+  notifyQuestion: (agentName: string) => Promise<void>
+  notifyAwaitingInput: (agentName: string) => Promise<void>
+
   // Menu events
   onMenuEvent: (event: string, callback: () => void) => () => void
 }
@@ -222,6 +228,12 @@ const api: ElectronAPI = {
   platform: process.platform,
   getVersion: () => ipcRenderer.invoke('app:version'),
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
+
+  // Notifications
+  notifyCompleted: (agentName) => ipcRenderer.invoke('notification:completed', agentName),
+  notifyFailed: (error) => ipcRenderer.invoke('notification:failed', error),
+  notifyQuestion: (agentName) => ipcRenderer.invoke('notification:question', agentName),
+  notifyAwaitingInput: (agentName) => ipcRenderer.invoke('notification:awaitingInput', agentName),
 
   // Menu events
   onMenuEvent: (event, callback) => {

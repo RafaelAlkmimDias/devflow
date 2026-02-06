@@ -11,6 +11,7 @@ export { searchApi } from './searchApi'
 export { projectApi } from './projectApi'
 export { requirementsApi } from './requirementsApi'
 export { appApi } from './appApi'
+export { notificationApi } from './notificationApi'
 
 // Re-export types from shared
 export type {

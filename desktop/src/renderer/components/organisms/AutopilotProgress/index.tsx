@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useAutopilotStore } from '@/lib/stores/autopilotStore';
-import { agentApi } from '@/infrastructure/api';
+import { agentApi, notificationApi } from '@/infrastructure/api';
 import type { AutopilotStreamData } from '@shared/types';
 import { AutopilotHeader } from './AutopilotHeader';
 import { AutopilotFooter } from './AutopilotFooter';
@@ -42,6 +42,9 @@ export function AutopilotProgress() {
         setWaitingForResponse(false);
       } else if (data.type === 'question' && data.data) {
         setWaitingForResponse(true);
+        // Notify user that agent has a question
+        const agentName = data.agent || 'Agente';
+        notificationApi.notifyQuestion(agentName);
       } else if (data.type === 'response-sent') {
         setWaitingForResponse(false);
         setResponseInput('');
@@ -50,6 +53,21 @@ export function AutopilotProgress() {
 
     return () => unsubscribe();
   }, []);
+
+  // Send notifications when autopilot status changes
+  useEffect(() => {
+    const currentAgent = currentPhaseIndex >= 0 && phases[currentPhaseIndex]
+      ? phases[currentPhaseIndex].agent
+      : 'Agente';
+
+    if (status === 'completed') {
+      notificationApi.notifyCompleted();
+    } else if (status === 'failed') {
+      notificationApi.notifyFailed(error || undefined);
+    } else if (status === 'awaiting_input') {
+      notificationApi.notifyAwaitingInput(currentAgent);
+    }
+  }, [status, error, currentPhaseIndex, phases]);
 
   // Handle sending response - use continuePhase to re-run agent with user's response
   const handleSendResponse = async () => {

@@ -30,14 +30,14 @@ interface PhaseItemProps {
 
 export function PhaseItem({
   phase,
-  phaseIndex,
+  phaseIndex: _phaseIndex,
   isCurrent,
   isExpanded,
   onToggle,
   isMaximized,
   shouldFillSpace,
   formatDuration,
-  isRunning,
+  isRunning: _isRunning,
 }: PhaseItemProps) {
   const agent = AGENT_INFO[phase.agent];
   const [copied, setCopied] = useState(false);
