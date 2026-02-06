@@ -9,6 +9,7 @@ import { registerAutopilotHandlers } from './autopilot'
 import { registerDevFlowHandlers } from './devflow'
 import { registerRequirementsHandlers } from './requirements'
 import { registerNotificationHandlers } from './notification'
+import { registerPowerHandlers } from './power'
 
 const store = new Store<{ recentProjects: string[] }>({
   name: 'projects',
@@ -28,6 +29,7 @@ export function registerAllHandlers(getMainWindow: () => BrowserWindow | null): 
   registerDevFlowHandlers()
   registerRequirementsHandlers()
   registerNotificationHandlers()
+  registerPowerHandlers()
 
   // Dialog handlers
   ipcMain.handle('dialog:selectDirectory', async () => {

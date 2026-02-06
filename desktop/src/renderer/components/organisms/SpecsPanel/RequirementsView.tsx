@@ -1,10 +1,11 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { FileText } from 'lucide-react';
 import { useSpecsStore } from '@/lib/stores/specsStore';
 import { useListNavigation } from '@/hooks/useListNavigation';
 import type { Requirement, Spec } from '@/lib/types';
 import { EmptyState } from './EmptyState';
 import { RequirementCard } from './RequirementCard';
+import { StatusFilterTabs, type StatusFilter } from './StatusFilterTabs';
 
 interface RequirementsViewProps {
   requirements: Requirement[];
@@ -23,6 +24,23 @@ export function RequirementsView({
 }: RequirementsViewProps) {
   const { getSpecProgress } = useSpecsStore();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+
+  const { pendingReqs, completedReqs } = useMemo(() => {
+    const pending: Requirement[] = [];
+    const completed: Requirement[] = [];
+    for (const req of requirements) {
+      const progress = getSpecProgress(req.specId);
+      if (progress.status === 'completed') {
+        completed.push(req);
+      } else {
+        pending.push(req);
+      }
+    }
+    return { pendingReqs: pending, completedReqs: completed };
+  }, [requirements, getSpecProgress]);
+
+  const filteredRequirements = statusFilter === 'pending' ? pendingReqs : completedReqs;
 
   const handleSelect = useCallback((req: Requirement) => {
     const spec = specs.find(s => s.id === req.specId);
@@ -32,7 +50,7 @@ export function RequirementsView({
   }, [specs, onOpenSpec]);
 
   const { handleKeyDown, isSelected } = useListNavigation({
-    items: requirements,
+    items: filteredRequirements,
     onSelect: handleSelect,
     getItemText: (req) => req.title,
     typeAhead: true,
@@ -51,29 +69,44 @@ export function RequirementsView({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="space-y-2 sm:space-y-3 focus:outline-none"
-      role="listbox"
-      aria-label="Requirements list"
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-    >
-      {requirements.map((req, index) => {
-        const spec = specs.find(s => s.id === req.specId);
-        const progress = getSpecProgress(req.specId);
-        return (
-          <RequirementCard
-            key={req.id}
-            requirement={req}
-            spec={spec}
-            progress={progress}
-            projectPath={projectPath}
-            onClick={() => spec && onOpenSpec(spec)}
-            isSelected={isSelected(index)}
-          />
-        );
-      })}
+    <div>
+      <StatusFilterTabs
+        active={statusFilter}
+        onChange={setStatusFilter}
+        pendingCount={pendingReqs.length}
+        completedCount={completedReqs.length}
+      />
+
+      {filteredRequirements.length === 0 ? (
+        <div className="text-center py-8 text-gray-500 text-sm">
+          {statusFilter === 'pending' ? 'Nenhum requirement pendente' : 'Nenhum requirement concluído'}
+        </div>
+      ) : (
+        <div
+          ref={containerRef}
+          className="space-y-2 sm:space-y-3 focus:outline-none"
+          role="listbox"
+          aria-label="Requirements list"
+          tabIndex={0}
+          onKeyDown={handleKeyDown}
+        >
+          {filteredRequirements.map((req, index) => {
+            const spec = specs.find(s => s.id === req.specId);
+            const progress = getSpecProgress(req.specId);
+            return (
+              <RequirementCard
+                key={req.id}
+                requirement={req}
+                spec={spec}
+                progress={progress}
+                projectPath={projectPath}
+                onClick={() => spec && onOpenSpec(spec)}
+                isSelected={isSelected(index)}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

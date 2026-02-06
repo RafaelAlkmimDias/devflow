@@ -1,10 +1,11 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Cpu } from 'lucide-react';
 import { useSpecsStore } from '@/lib/stores/specsStore';
 import { useListNavigation } from '@/hooks/useListNavigation';
 import type { DesignDecision, Spec } from '@/lib/types';
 import { EmptyState } from './EmptyState';
 import { DecisionCard } from './DecisionCard';
+import { StatusFilterTabs, type StatusFilter } from './StatusFilterTabs';
 
 interface DesignViewProps {
   decisions: DesignDecision[];
@@ -21,6 +22,23 @@ export function DesignView({
 }: DesignViewProps) {
   const { getSpecProgress } = useSpecsStore();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+
+  const { pendingDecs, completedDecs } = useMemo(() => {
+    const pending: DesignDecision[] = [];
+    const completed: DesignDecision[] = [];
+    for (const dec of decisions) {
+      const progress = getSpecProgress(dec.specId);
+      if (progress.status === 'completed') {
+        completed.push(dec);
+      } else {
+        pending.push(dec);
+      }
+    }
+    return { pendingDecs: pending, completedDecs: completed };
+  }, [decisions, getSpecProgress]);
+
+  const filteredDecisions = statusFilter === 'pending' ? pendingDecs : completedDecs;
 
   const handleSelect = useCallback((dec: DesignDecision) => {
     const spec = specs.find(s => s.id === dec.specId);
@@ -30,7 +48,7 @@ export function DesignView({
   }, [specs, onOpenSpec]);
 
   const { handleKeyDown, isSelected } = useListNavigation({
-    items: decisions,
+    items: filteredDecisions,
     onSelect: handleSelect,
     getItemText: (dec) => dec.title,
     typeAhead: true,
@@ -49,28 +67,43 @@ export function DesignView({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="space-y-2 sm:space-y-3 focus:outline-none"
-      role="listbox"
-      aria-label="Design decisions list"
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-    >
-      {decisions.map((dec, index) => {
-        const spec = specs.find(s => s.id === dec.specId);
-        const progress = getSpecProgress(dec.specId);
-        return (
-          <DecisionCard
-            key={dec.id}
-            decision={dec}
-            spec={spec}
-            progress={progress}
-            onClick={() => spec && onOpenSpec(spec)}
-            isSelected={isSelected(index)}
-          />
-        );
-      })}
+    <div>
+      <StatusFilterTabs
+        active={statusFilter}
+        onChange={setStatusFilter}
+        pendingCount={pendingDecs.length}
+        completedCount={completedDecs.length}
+      />
+
+      {filteredDecisions.length === 0 ? (
+        <div className="text-center py-8 text-gray-500 text-sm">
+          {statusFilter === 'pending' ? 'Nenhuma decisão pendente' : 'Nenhuma decisão concluída'}
+        </div>
+      ) : (
+        <div
+          ref={containerRef}
+          className="space-y-2 sm:space-y-3 focus:outline-none"
+          role="listbox"
+          aria-label="Design decisions list"
+          tabIndex={0}
+          onKeyDown={handleKeyDown}
+        >
+          {filteredDecisions.map((dec, index) => {
+            const spec = specs.find(s => s.id === dec.specId);
+            const progress = getSpecProgress(dec.specId);
+            return (
+              <DecisionCard
+                key={dec.id}
+                decision={dec}
+                spec={spec}
+                progress={progress}
+                onClick={() => spec && onOpenSpec(spec)}
+                isSelected={isSelected(index)}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

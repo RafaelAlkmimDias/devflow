@@ -92,6 +92,9 @@ export class AgentService {
         // Debounce question detection
         this.clearQuestionTimeout(agent)
         const timeout = setTimeout(() => {
+          // Guard: skip if agent process already exited
+          if (!this.activePtyProcesses.has(agent)) return
+
           if (detectQuestion(questionBuffer)) {
             console.log('[AgentService] Question detected, waiting for user input')
             this.sendToRenderer('autopilot:stream', {
@@ -106,23 +109,26 @@ export class AgentService {
       })
 
       ptyProcess.onExit(({ exitCode }) => {
-        console.log('[AgentService] Process exited with code:', exitCode)
-        console.log('[AgentService] Output length:', output.length)
-
-        // Clear pending question timeout
+        // Clear pending question timeout FIRST to prevent race condition
         this.clearQuestionTimeout(agent)
-
-        // Check for question in remaining buffer BEFORE cleanup
-        if (questionBuffer.length > 0 && detectQuestion(questionBuffer)) {
-          console.log('[AgentService] Question detected at exit, sending to renderer')
-          this.sendToRenderer('autopilot:stream', {
-            agent,
-            type: 'question',
-            data: questionBuffer.slice(-500),
-          })
-        }
-
         this.activePtyProcesses.delete(agent)
+
+        try {
+          console.log('[AgentService] Process exited with code:', exitCode)
+          console.log('[AgentService] Output length:', output.length)
+
+          // Check for question in remaining buffer
+          if (questionBuffer.length > 0 && detectQuestion(questionBuffer)) {
+            console.log('[AgentService] Question detected at exit, sending to renderer')
+            this.sendToRenderer('autopilot:stream', {
+              agent,
+              type: 'question',
+              data: questionBuffer.slice(-500),
+            })
+          }
+        } catch {
+          // Ignore EPIPE errors from console.log during shutdown
+        }
 
         if (exitCode === 0) {
           resolve(output)

@@ -77,6 +77,11 @@ export interface ElectronAPI {
   notifyQuestion: (agentName: string) => Promise<void>
   notifyAwaitingInput: (agentName: string) => Promise<void>
 
+  // Power management
+  powerStartBlocking: () => Promise<boolean>
+  powerStopBlocking: () => Promise<void>
+  powerIsBlocking: () => Promise<boolean>
+
   // Menu events
   onMenuEvent: (event: string, callback: () => void) => () => void
 }
@@ -234,6 +239,11 @@ const api: ElectronAPI = {
   notifyFailed: (error) => ipcRenderer.invoke('notification:failed', error),
   notifyQuestion: (agentName) => ipcRenderer.invoke('notification:question', agentName),
   notifyAwaitingInput: (agentName) => ipcRenderer.invoke('notification:awaitingInput', agentName),
+
+  // Power management
+  powerStartBlocking: () => ipcRenderer.invoke('power:startBlocking'),
+  powerStopBlocking: () => ipcRenderer.invoke('power:stopBlocking'),
+  powerIsBlocking: () => ipcRenderer.invoke('power:isBlocking'),
 
   // Menu events
   onMenuEvent: (event, callback) => {

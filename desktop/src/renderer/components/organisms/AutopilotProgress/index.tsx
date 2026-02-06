@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useAutopilotStore } from '@/lib/stores/autopilotStore';
-import { agentApi, notificationApi } from '@/infrastructure/api';
+import { agentApi, notificationApi, powerApi } from '@/infrastructure/api';
 import type { AutopilotStreamData } from '@shared/types';
 import { AutopilotHeader } from './AutopilotHeader';
 import { AutopilotFooter } from './AutopilotFooter';
@@ -68,6 +68,20 @@ export function AutopilotProgress() {
       notificationApi.notifyAwaitingInput(currentAgent);
     }
   }, [status, error, currentPhaseIndex, phases]);
+
+  // Prevent system sleep while autopilot is running
+  useEffect(() => {
+    if (status === 'running') {
+      powerApi.startBlocking();
+    } else {
+      powerApi.stopBlocking();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      powerApi.stopBlocking();
+    };
+  }, [status]);
 
   // Handle sending response - use continuePhase to re-run agent with user's response
   const handleSendResponse = async () => {

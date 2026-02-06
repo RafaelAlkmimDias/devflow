@@ -1,3 +1,12 @@
+// Handle EPIPE errors on stdout/stderr to prevent crashes when pipes are broken
+// This must run before any console.log/warn/error calls
+for (const stream of [process.stdout, process.stderr]) {
+  stream?.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EPIPE') return
+    throw err
+  })
+}
+
 import { app, BrowserWindow, shell, nativeTheme } from 'electron'
 import path from 'path'
 import { registerAllHandlers } from './ipc'

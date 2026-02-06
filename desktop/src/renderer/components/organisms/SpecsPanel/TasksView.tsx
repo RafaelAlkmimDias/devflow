@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ListTodo } from 'lucide-react';
 import { useSpecsStore } from '@/lib/stores/specsStore';
 import { useFileStore } from '@/lib/stores/fileStore';
@@ -6,6 +6,7 @@ import type { Task } from '@/lib/types';
 import { EmptyState } from './EmptyState';
 import { TaskGroup } from './TaskGroup';
 import { ConfirmTaskModal } from './ConfirmTaskModal';
+import { StatusFilterTabs, type StatusFilter } from './StatusFilterTabs';
 
 interface TasksViewProps {
   tasks: Task[];
@@ -17,6 +18,13 @@ export function TasksView({ tasks, onCreateNew }: TasksViewProps) {
   const { openFile } = useFileStore();
   const [confirmModal, setConfirmModal] = useState<{ task: Task; newStatus: Task['status'] } | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+
+  const { pendingTasks, completedTasks } = useMemo(() => {
+    const pending = tasks.filter(t => t.status !== 'completed');
+    const completed = tasks.filter(t => t.status === 'completed');
+    return { pendingTasks: pending, completedTasks: completed };
+  }, [tasks]);
 
   const handleToggleRequest = (task: Task, currentStatus: Task['status']) => {
     const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
@@ -53,53 +61,70 @@ export function TasksView({ tasks, onCreateNew }: TasksViewProps) {
     );
   }
 
-  const groupedTasks = {
-    in_progress: tasks.filter(t => t.status === 'in_progress'),
-    pending: tasks.filter(t => t.status === 'pending'),
-    blocked: tasks.filter(t => t.status === 'blocked'),
-    completed: tasks.filter(t => t.status === 'completed'),
+  const filteredTasks = statusFilter === 'pending' ? pendingTasks : completedTasks;
+
+  const groupedPending = {
+    in_progress: pendingTasks.filter(t => t.status === 'in_progress'),
+    pending: pendingTasks.filter(t => t.status === 'pending'),
+    blocked: pendingTasks.filter(t => t.status === 'blocked'),
   };
 
   return (
     <>
-      <div className="space-y-3 sm:space-y-4">
-        {groupedTasks.in_progress.length > 0 && (
-          <TaskGroup
-            title="In Progress"
-            tasks={groupedTasks.in_progress}
-            color="text-blue-400"
-            onToggle={handleToggleRequest}
-            onViewFile={handleViewFile}
-          />
-        )}
-        {groupedTasks.pending.length > 0 && (
-          <TaskGroup
-            title="Pending"
-            tasks={groupedTasks.pending}
-            color="text-gray-400"
-            onToggle={handleToggleRequest}
-            onViewFile={handleViewFile}
-          />
-        )}
-        {groupedTasks.blocked.length > 0 && (
-          <TaskGroup
-            title="Blocked"
-            tasks={groupedTasks.blocked}
-            color="text-red-400"
-            onToggle={handleToggleRequest}
-            onViewFile={handleViewFile}
-          />
-        )}
-        {groupedTasks.completed.length > 0 && (
-          <TaskGroup
-            title="Completed"
-            tasks={groupedTasks.completed}
-            color="text-green-400"
-            onToggle={handleToggleRequest}
-            onViewFile={handleViewFile}
-          />
-        )}
-      </div>
+      <StatusFilterTabs
+        active={statusFilter}
+        onChange={setStatusFilter}
+        pendingCount={pendingTasks.length}
+        completedCount={completedTasks.length}
+      />
+
+      {filteredTasks.length === 0 ? (
+        <div className="text-center py-8 text-gray-500 text-sm">
+          {statusFilter === 'pending' ? 'Nenhuma task pendente' : 'Nenhuma task concluída'}
+        </div>
+      ) : (
+        <div className="space-y-3 sm:space-y-4">
+          {statusFilter === 'pending' ? (
+            <>
+              {groupedPending.in_progress.length > 0 && (
+                <TaskGroup
+                  title="In Progress"
+                  tasks={groupedPending.in_progress}
+                  color="text-blue-400"
+                  onToggle={handleToggleRequest}
+                  onViewFile={handleViewFile}
+                />
+              )}
+              {groupedPending.pending.length > 0 && (
+                <TaskGroup
+                  title="Pending"
+                  tasks={groupedPending.pending}
+                  color="text-gray-400"
+                  onToggle={handleToggleRequest}
+                  onViewFile={handleViewFile}
+                />
+              )}
+              {groupedPending.blocked.length > 0 && (
+                <TaskGroup
+                  title="Blocked"
+                  tasks={groupedPending.blocked}
+                  color="text-red-400"
+                  onToggle={handleToggleRequest}
+                  onViewFile={handleViewFile}
+                />
+              )}
+            </>
+          ) : (
+            <TaskGroup
+              title="Completed"
+              tasks={completedTasks}
+              color="text-green-400"
+              onToggle={handleToggleRequest}
+              onViewFile={handleViewFile}
+            />
+          )}
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {confirmModal && (

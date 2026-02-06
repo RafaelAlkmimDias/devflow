@@ -112,6 +112,11 @@ export interface ElectronAPI {
   notifyQuestion: (agentName: string) => Promise<void>
   notifyAwaitingInput: (agentName: string) => Promise<void>
 
+  // Power management
+  powerStartBlocking: () => Promise<boolean>
+  powerStopBlocking: () => Promise<void>
+  powerIsBlocking: () => Promise<boolean>
+
   // Menu events
   onMenuEvent: (event: string, callback: () => void) => () => void
 }
