@@ -60,7 +60,11 @@ export function ExpandableTaskList({
 
       {expanded && tasks.length > 0 && (
         <div className="mt-2 space-y-1 border-t border-white/5 pt-2">
-          {tasks.map((task) => {
+          {[...tasks].sort((a, b) => {
+            const aDone = a.status === 'completed' ? 1 : 0;
+            const bDone = b.status === 'completed' ? 1 : 0;
+            return aDone - bDone;
+          }).map((task) => {
             const isTaskDone = task.status === 'completed';
             return (
               <div
