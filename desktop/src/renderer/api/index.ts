@@ -80,7 +80,14 @@ export interface ElectronAPI {
   searchCode: (rootPath: string, query: string, options?: SearchOptions) => Promise<SearchResult[]>
   searchFiles: (rootPath: string, query: string) => Promise<string[]>
 
-  // Autopilot
+  // Autopilot (single-session API)
+  startAutopilotSession: (cwd: string) => Promise<void>
+  sendAgentPrompt: (agent: string, prompt: string) => Promise<string>
+  sendAgentResponse: (response: string) => Promise<void>
+  cancelCurrentAgent: () => Promise<void>
+  endAutopilotSession: () => Promise<void>
+
+  // Autopilot (legacy API)
   executeAgent: (agent: string, prompt: string, cwd: string) => Promise<string>
   respondToAgent: (agent: string, response: string) => Promise<void>
   cancelAgent: (agent: string) => Promise<void>

@@ -8,6 +8,7 @@ import {
 } from '../types'
 import {
   outputEndsWithQuestion,
+  buildSessionAgentPrompt,
   buildAgentPrompt,
   buildContinuationPrompt,
   formatUserResponseSeparator,
@@ -42,11 +43,18 @@ export interface OrchestratorCallbacks {
 
 /**
  * Orchestrates the autopilot workflow execution.
- * Manages phase transitions and agent executions.
+ * Uses a single persistent Claude CLI session for all agents,
+ * eliminating redundant context re-sends (~95% token savings).
  */
 export class AutopilotOrchestrator {
+  private sessionActive = false
+
   constructor(private callbacks: OrchestratorCallbacks) {}
 
+  /**
+   * Run phases using the single-session flow.
+   * Starts a session, runs each agent sequentially, ends the session.
+   */
   async runPhases(
     config: AutopilotConfig,
     initialPhases: PhaseResult[],
@@ -56,45 +64,85 @@ export class AutopilotOrchestrator {
     startIndex: number
   ): Promise<void> {
     let phases = initialPhases
-    let previousOutputs = collectPreviousOutputs(phases)
 
-    for (let i = startIndex; i < config.phases.length; i++) {
-      if (phases[i].status === 'completed') continue
-
-      const agentId = config.phases[i]
-      phases = setPhaseRunning(phases, i)
-      this.callbacks.onPhaseStart(i, phases)
-
-      const startTime = Date.now()
-
+    // Start persistent session
+    if (!this.sessionActive) {
       try {
-        const prompt = buildAgentPrompt(agentId, specContent, previousOutputs)
-        const output = await agentApi.execute(agentId, prompt, projectPath)
-        const duration = Date.now() - startTime
-
-        previousOutputs.push(output || '')
-        phases = setPhaseCompleted(phases, i, output || '', duration)
-
-        const history = this.callbacks.updateHistory(specId, agentId, output || '')
-        this.callbacks.onPhaseComplete(i, phases, history)
-
-        const hasQuestion = outputEndsWithQuestion(output || '')
-        const isLastPhase = i === config.phases.length - 1
-
-        if (hasQuestion && !isLastPhase) {
-          this.callbacks.onAwaitingInput(config)
-          return
-        }
+        await agentApi.startSession(projectPath)
+        this.sessionActive = true
       } catch (error) {
-        const duration = Date.now() - startTime
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        phases = setPhaseFailed(phases, i, errorMessage, duration)
-        this.callbacks.onPhaseFailed(i, phases, errorMessage)
+        const errorMessage = error instanceof Error ? error.message : 'Failed to start session'
+        console.error('[Orchestrator] Failed to start session:', errorMessage)
+        // Fallback: if session start fails, mark first phase as failed
+        if (phases[startIndex]) {
+          phases = setPhaseFailed(phases, startIndex, errorMessage, 0)
+          this.callbacks.onPhaseFailed(startIndex, phases, errorMessage)
+        }
         return
       }
     }
 
-    this.callbacks.onRunComplete()
+    const totalPhases = config.phases.length
+
+    try {
+      for (let i = startIndex; i < totalPhases; i++) {
+        if (phases[i].status === 'completed') continue
+
+        const agentId = config.phases[i]
+        const isFirstAgent = i === startIndex && !this.hasContextInSession(phases, startIndex)
+        const isLastAgent = i === totalPhases - 1
+
+        phases = setPhaseRunning(phases, i)
+        this.callbacks.onPhaseStart(i, phases)
+
+        const startTime = Date.now()
+
+        try {
+          // Build prompt: first agent gets spec, subsequent agents only get focus points
+          const prompt = buildSessionAgentPrompt(agentId, specContent, isFirstAgent, isLastAgent)
+          const output = await agentApi.sendPrompt(agentId, prompt)
+          const duration = Date.now() - startTime
+
+          phases = setPhaseCompleted(phases, i, output || '', duration)
+
+          const history = this.callbacks.updateHistory(specId, agentId, output || '')
+          this.callbacks.onPhaseComplete(i, phases, history)
+
+          const hasQuestion = outputEndsWithQuestion(output || '')
+
+          if (hasQuestion && !isLastAgent) {
+            this.callbacks.onAwaitingInput(config)
+            return // Session stays alive — will resume via continuePhase
+          }
+        } catch (error) {
+          const duration = Date.now() - startTime
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          phases = setPhaseFailed(phases, i, errorMessage, duration)
+          this.callbacks.onPhaseFailed(i, phases, errorMessage)
+          this.endSessionSafely()
+          return
+        }
+      }
+
+      this.callbacks.onRunComplete()
+    } finally {
+      // Only end session if run completed (not paused for user input)
+      const isAwaitingInput = phases.some(p =>
+        p.status === 'completed' && outputEndsWithQuestion(p.output || '')
+      )
+      if (!isAwaitingInput) {
+        this.endSessionSafely()
+      }
+    }
+  }
+
+  /**
+   * Check if previous agents have already run in this session
+   * (i.e., we're resuming from a pause, not starting fresh)
+   */
+  private hasContextInSession(phases: PhaseResult[], startIndex: number): boolean {
+    // If any phase before startIndex is completed, its context is already in the session
+    return phases.slice(0, startIndex).some(p => p.status === 'completed')
   }
 
   async startRun(
@@ -125,9 +173,15 @@ export class AutopilotOrchestrator {
       phases: phases.map(p => p.agent),
     }
 
+    // Resume creates a new session (context from previous session is lost)
+    // This is the graceful degradation scenario
     await this.runPhases(config, phases, specContent, projectPath, specId, startIndex)
   }
 
+  /**
+   * Continue a phase after user responds to a question.
+   * In single-session flow, just sends the response directly to the PTY.
+   */
   async continuePhase(phaseIndex: number, userResponse: string): Promise<void> {
     const state = this.callbacks.getState()
     const { phases, specContent, projectPath, specId, pendingPhasesConfig } = state
@@ -141,43 +195,83 @@ export class AutopilotOrchestrator {
     const startTime = Date.now()
 
     try {
-      const previousOutputs = collectPreviousOutputs(phases.filter((_, idx) => idx < phaseIndex))
-      const continuationPrompt = buildContinuationPrompt(
-        phase.agent,
-        specContent,
-        previousOutputs,
-        phase.output || '',
-        userResponse
-      )
+      if (this.sessionActive) {
+        // Single-session flow: the previous claude -p process already exited
+        // after emitting AWAITING_INPUT. Use sendPrompt with --continue to
+        // continue the conversation with the user's response as a new prompt.
+        const continuationPrompt = `Resposta do usuário à sua pergunta:\n\n${userResponse}\n\nContinue sua análise incorporando o feedback do usuário.\nAo finalizar, emita [STATUS: READY_TO_PROCEED]\nSe precisar de mais input do usuário, emita [STATUS: AWAITING_INPUT]`
 
-      const newOutput = await agentApi.execute(phase.agent, continuationPrompt, projectPath)
-      const duration = Date.now() - startTime
+        const newOutput = await agentApi.sendPrompt(phase.agent, continuationPrompt)
+        const duration = Date.now() - startTime
 
-      const combinedOutput = `${phase.output || ''}${formatUserResponseSeparator(userResponse)}${newOutput || ''}`
-      updatedPhases = updatedPhases.map((p, idx) =>
-        idx === phaseIndex
-          ? { ...p, status: 'completed' as PhaseStatus, output: combinedOutput, duration: (p.duration || 0) + duration }
-          : p
-      )
+        const combinedOutput = `${phase.output || ''}\n\n---\n[Sua resposta: ${userResponse}]\n---\n\n${newOutput || ''}`
 
-      const history = this.callbacks.updateHistory(specId, phase.agent, combinedOutput)
-      this.callbacks.onPhaseComplete(phaseIndex, updatedPhases, history)
+        updatedPhases = updatedPhases.map((p, idx) =>
+          idx === phaseIndex
+            ? { ...p, status: 'completed' as PhaseStatus, output: combinedOutput, duration: (p.duration || 0) + duration }
+            : p
+        )
 
-      const hasQuestion = outputEndsWithQuestion(newOutput || '')
-      if (hasQuestion && pendingPhasesConfig) {
-        this.callbacks.onAwaitingInput(pendingPhasesConfig)
-        return
-      }
+        const history = this.callbacks.updateHistory(specId, phase.agent, combinedOutput)
+        this.callbacks.onPhaseComplete(phaseIndex, updatedPhases, history)
 
-      if (pendingPhasesConfig) {
-        const completedCount = updatedPhases.filter(p => p.status === 'completed').length
-        if (completedCount < pendingPhasesConfig.phases.length) {
-          await this.skipToNextAgentInternal(pendingPhasesConfig, updatedPhases)
+        // Check if the new output also has a question
+        const hasQuestion = outputEndsWithQuestion(newOutput || '')
+        if (hasQuestion && pendingPhasesConfig) {
+          this.callbacks.onAwaitingInput(pendingPhasesConfig)
           return
         }
-      }
 
-      this.callbacks.onRunComplete()
+        // Continue with remaining phases
+        if (pendingPhasesConfig) {
+          const completedCount = updatedPhases.filter(p => p.status === 'completed').length
+          if (completedCount < pendingPhasesConfig.phases.length) {
+            await this.skipToNextAgentInternal(pendingPhasesConfig, updatedPhases)
+            return
+          }
+        }
+
+        this.callbacks.onRunComplete()
+      } else {
+        // Fallback: legacy flow (session died, need new PTY)
+        const previousOutputs = collectPreviousOutputs(phases.filter((_, idx) => idx < phaseIndex))
+        const continuationPrompt = buildContinuationPrompt(
+          phase.agent,
+          specContent,
+          previousOutputs,
+          phase.output || '',
+          userResponse
+        )
+
+        const newOutput = await agentApi.execute(phase.agent, continuationPrompt, projectPath)
+        const duration = Date.now() - startTime
+
+        const combinedOutput = `${phase.output || ''}${formatUserResponseSeparator(userResponse)}${newOutput || ''}`
+        updatedPhases = updatedPhases.map((p, idx) =>
+          idx === phaseIndex
+            ? { ...p, status: 'completed' as PhaseStatus, output: combinedOutput, duration: (p.duration || 0) + duration }
+            : p
+        )
+
+        const history = this.callbacks.updateHistory(specId, phase.agent, combinedOutput)
+        this.callbacks.onPhaseComplete(phaseIndex, updatedPhases, history)
+
+        const hasQuestion = outputEndsWithQuestion(newOutput || '')
+        if (hasQuestion && pendingPhasesConfig) {
+          this.callbacks.onAwaitingInput(pendingPhasesConfig)
+          return
+        }
+
+        if (pendingPhasesConfig) {
+          const completedCount = updatedPhases.filter(p => p.status === 'completed').length
+          if (completedCount < pendingPhasesConfig.phases.length) {
+            await this.skipToNextAgentInternal(pendingPhasesConfig, updatedPhases)
+            return
+          }
+        }
+
+        this.callbacks.onRunComplete()
+      }
     } catch (error) {
       const duration = Date.now() - startTime
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -208,14 +302,16 @@ export class AutopilotOrchestrator {
 
     if (nextPhaseIndex >= config.phases.length) {
       this.callbacks.onRunComplete()
+      this.endSessionSafely()
       return
     }
 
     let phases = currentPhases
-    let previousOutputs = collectPreviousOutputs(phases)
+    const totalPhases = config.phases.length
 
-    for (let i = nextPhaseIndex; i < config.phases.length; i++) {
+    for (let i = nextPhaseIndex; i < totalPhases; i++) {
       const agentId = config.phases[i]
+      const isLastAgent = i === totalPhases - 1
       let phaseIndex = phases.findIndex(p => p.agent === agentId)
 
       if (phaseIndex < 0) {
@@ -230,20 +326,29 @@ export class AutopilotOrchestrator {
       const startTime = Date.now()
 
       try {
-        const prompt = buildAgentPrompt(agentId, specContent, previousOutputs)
-        const output = await agentApi.execute(agentId, prompt, projectPath)
+        let output: string
+
+        if (this.sessionActive) {
+          // Single-session flow: subsequent agents don't need spec/previousOutputs
+          const prompt = buildSessionAgentPrompt(agentId, specContent, false, isLastAgent)
+          output = await agentApi.sendPrompt(agentId, prompt)
+        } else {
+          // Fallback: legacy flow
+          const previousOutputs = collectPreviousOutputs(phases)
+          const prompt = buildAgentPrompt(agentId, specContent, previousOutputs)
+          output = await agentApi.execute(agentId, prompt, projectPath)
+        }
+
         const duration = Date.now() - startTime
 
-        previousOutputs.push(output || '')
         phases = setPhaseCompleted(phases, phaseIndex, output || '', duration)
 
         const history = this.callbacks.updateHistory(specId, agentId, output || '')
         this.callbacks.onPhaseComplete(phaseIndex, phases, history)
 
         const hasQuestion = outputEndsWithQuestion(output || '')
-        const isLastPhase = i === config.phases.length - 1
 
-        if (hasQuestion && !isLastPhase) {
+        if (hasQuestion && !isLastAgent) {
           this.callbacks.onAwaitingInput(config)
           return
         }
@@ -252,11 +357,13 @@ export class AutopilotOrchestrator {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         phases = setPhaseFailed(phases, phaseIndex, errorMessage, duration)
         this.callbacks.onPhaseFailed(phaseIndex, phases, errorMessage)
+        this.endSessionSafely()
         return
       }
     }
 
     this.callbacks.onRunComplete()
+    this.endSessionSafely()
   }
 
   async runNextAgent(): Promise<void> {
@@ -266,7 +373,6 @@ export class AutopilotOrchestrator {
     const nextAgent = getNextAgent(phases)
     if (!nextAgent) throw new Error('No more agents to run')
 
-    const previousOutputs = collectPreviousOutputs(phases)
     const newPhase = createPhase(nextAgent, 'running')
 
     let updatedPhases = [...phases, newPhase]
@@ -276,8 +382,19 @@ export class AutopilotOrchestrator {
     const startTime = Date.now()
 
     try {
-      const prompt = buildAgentPrompt(nextAgent, specContent, previousOutputs)
-      const output = await agentApi.execute(nextAgent, prompt, projectPath)
+      let output: string
+
+      if (this.sessionActive) {
+        const prompt = buildSessionAgentPrompt(nextAgent, specContent, false, true)
+        output = await agentApi.sendPrompt(nextAgent, prompt)
+      } else {
+        // Start a new session for single-agent run
+        await agentApi.startSession(projectPath)
+        this.sessionActive = true
+        const prompt = buildSessionAgentPrompt(nextAgent, specContent, true, true)
+        output = await agentApi.sendPrompt(nextAgent, prompt)
+      }
+
       const duration = Date.now() - startTime
 
       updatedPhases = setPhaseCompleted(updatedPhases, phaseIndex, output || '', duration)
@@ -289,6 +406,22 @@ export class AutopilotOrchestrator {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       updatedPhases = setPhaseFailed(updatedPhases, phaseIndex, errorMessage, duration)
       this.callbacks.onPhaseFailed(phaseIndex, updatedPhases, errorMessage)
+    } finally {
+      this.endSessionSafely()
+    }
+  }
+
+  /**
+   * Safely end the session, ignoring errors
+   */
+  private endSessionSafely(): void {
+    if (this.sessionActive) {
+      try {
+        agentApi.endSession()
+      } catch {
+        // Ignore errors during session cleanup
+      }
+      this.sessionActive = false
     }
   }
 }

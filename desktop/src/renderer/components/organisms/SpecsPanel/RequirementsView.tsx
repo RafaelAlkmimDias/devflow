@@ -26,21 +26,28 @@ export function RequirementsView({
   const containerRef = useRef<HTMLDivElement>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
 
-  const { pendingReqs, completedReqs } = useMemo(() => {
+  const { pendingReqs, completedReqs, blockedReqs } = useMemo(() => {
     const pending: Requirement[] = [];
     const completed: Requirement[] = [];
+    const blocked: Requirement[] = [];
     for (const req of requirements) {
       const progress = getSpecProgress(req.specId);
       if (progress.status === 'completed') {
         completed.push(req);
+      } else if (progress.total > 0 && progress.blocked === progress.total) {
+        blocked.push(req);
       } else {
         pending.push(req);
       }
     }
-    return { pendingReqs: pending, completedReqs: completed };
+    return { pendingReqs: pending, completedReqs: completed, blockedReqs: blocked };
   }, [requirements, getSpecProgress]);
 
-  const filteredRequirements = statusFilter === 'pending' ? pendingReqs : completedReqs;
+  const filteredRequirements = statusFilter === 'pending'
+    ? pendingReqs
+    : statusFilter === 'completed'
+      ? completedReqs
+      : blockedReqs;
 
   const handleSelect = useCallback((req: Requirement) => {
     const spec = specs.find(s => s.id === req.specId);
@@ -75,11 +82,14 @@ export function RequirementsView({
         onChange={setStatusFilter}
         pendingCount={pendingReqs.length}
         completedCount={completedReqs.length}
+        blockedCount={blockedReqs.length}
       />
 
       {filteredRequirements.length === 0 ? (
         <div className="text-center py-8 text-gray-500 text-sm">
-          {statusFilter === 'pending' ? 'Nenhum requirement pendente' : 'Nenhum requirement concluído'}
+          {statusFilter === 'pending' && 'Nenhum requirement pendente'}
+          {statusFilter === 'completed' && 'Nenhum requirement concluído'}
+          {statusFilter === 'blocked' && 'Nenhum requirement bloqueado'}
         </div>
       ) : (
         <div

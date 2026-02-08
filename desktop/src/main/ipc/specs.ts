@@ -15,7 +15,7 @@ export function registerSpecsHandlers(): void {
   // Update task status in markdown file
   ipcMain.handle(
     'specs:updateTaskStatus',
-    async (_, params: { filePath: string; taskText: string; completed: boolean }): Promise<boolean> => {
+    async (_, params: { filePath: string; taskText: string; completed?: boolean; status?: 'completed' | 'pending' | 'blocked' }): Promise<boolean> => {
       return specsService.updateTaskStatus(params)
     }
   )

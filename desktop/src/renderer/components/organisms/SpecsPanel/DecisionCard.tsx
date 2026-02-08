@@ -5,6 +5,9 @@ import {
   ExternalLink,
   Loader2,
   Rocket,
+  Check,
+  ShieldBan,
+  Undo2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAutopilotStore } from '@/lib/stores/autopilotStore';
@@ -42,9 +45,10 @@ export function DecisionCard({
   }, [isSelected]);
 
   const { openConfigModal, status: autopilotStatus, specId: autopilotSpecId } = useAutopilotStore();
-  const { specs: allSpecs, getSpecProgress, getTasksBySpec } = useSpecsStore();
+  const { specs: allSpecs, getSpecProgress, getTasksBySpec, updateTaskStatusWithPersist } = useSpecsStore();
   const specTasks = spec ? getTasksBySpec(spec.id) : [];
   const isAutopilotRunning = autopilotStatus === 'running' && autopilotSpecId === spec?.id;
+  const allBlocked = specTasks.length > 0 && specTasks.every(t => t.status === 'blocked');
 
   const getDependencyStatus = useCallback((code: string): 'completed' | 'in_progress' | 'not_found' => {
     const normalizedCode = code.trim().toLowerCase();
@@ -59,6 +63,30 @@ export function DecisionCard({
     if (spec) {
       const content = `# ${decision.title}\n\n${decision.context}`;
       openConfigModal(spec.id, decision.title, content);
+    }
+  };
+
+  const handleMarkAllDone = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const pending = specTasks.filter(t => t.status !== 'completed');
+    for (const task of pending) {
+      await updateTaskStatusWithPersist(task.id, 'completed');
+    }
+  };
+
+  const handleBlockAll = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const pending = specTasks.filter(t => t.status !== 'blocked');
+    for (const task of pending) {
+      await updateTaskStatusWithPersist(task.id, 'blocked');
+    }
+  };
+
+  const handleRestoreAll = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nonPending = specTasks.filter(t => t.status === 'completed' || t.status === 'blocked');
+    for (const task of nonPending) {
+      await updateTaskStatusWithPersist(task.id, 'pending');
     }
   };
 
@@ -160,31 +188,61 @@ export function DecisionCard({
             parentContext={decision.context}
           />
 
-          {progress.status !== 'completed' && spec && (
+          {spec && (
             <div className="mt-2 flex items-center gap-2">
-              <button
-                onClick={handleAutopilotClick}
-                disabled={!!isAutopilotRunning}
-                aria-label={isAutopilotRunning ? 'Autopilot running' : 'Start Autopilot'}
-                className={cn(
-                  'flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-all',
-                  isAutopilotRunning
-                    ? 'bg-purple-500/20 text-purple-400 cursor-wait'
-                    : 'bg-white/10 text-gray-400 hover:bg-purple-500/20 hover:text-purple-400 opacity-0 group-hover:opacity-100'
-                )}
-              >
-                {isAutopilotRunning ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
-                    Running...
-                  </>
-                ) : (
-                  <>
-                    <Rocket className="w-3 h-3" aria-hidden="true" />
-                    Autopilot
-                  </>
-                )}
-              </button>
+              {progress.status !== 'completed' && !allBlocked && (
+                <>
+                  <button
+                    onClick={handleMarkAllDone}
+                    title="Marcar todas como feitas manualmente"
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-all bg-white/10 text-gray-400 hover:bg-green-500/20 hover:text-green-400 opacity-0 group-hover:opacity-100"
+                  >
+                    <Check className="w-3 h-3" aria-hidden="true" />
+                    Feito
+                  </button>
+                  <button
+                    onClick={handleBlockAll}
+                    title="Bloquear todas as tarefas"
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-all bg-white/10 text-gray-400 hover:bg-red-500/20 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                  >
+                    <ShieldBan className="w-3 h-3" aria-hidden="true" />
+                    Bloquear
+                  </button>
+                  <button
+                    onClick={handleAutopilotClick}
+                    disabled={!!isAutopilotRunning}
+                    aria-label={isAutopilotRunning ? 'Autopilot running' : 'Start Autopilot'}
+                    className={cn(
+                      'flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-all',
+                      isAutopilotRunning
+                        ? 'bg-purple-500/20 text-purple-400 cursor-wait'
+                        : 'bg-white/10 text-gray-400 hover:bg-purple-500/20 hover:text-purple-400 opacity-0 group-hover:opacity-100'
+                    )}
+                  >
+                    {isAutopilotRunning ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <Rocket className="w-3 h-3" aria-hidden="true" />
+                        Autopilot
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+              {(progress.status === 'completed' || allBlocked) && (
+                <button
+                  onClick={handleRestoreAll}
+                  title="Restaurar todas as tarefas"
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-all bg-white/10 text-gray-400 hover:bg-white/20 hover:text-gray-300 opacity-0 group-hover:opacity-100"
+                >
+                  <Undo2 className="w-3 h-3" aria-hidden="true" />
+                  Restaurar
+                </button>
+              )}
             </div>
           )}
 

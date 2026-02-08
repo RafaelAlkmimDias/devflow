@@ -17,7 +17,12 @@ export function ProgressBar({ progress }: ProgressBarProps) {
   return (
     <div className="mt-2">
       <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
-        <span>{progress.completed}/{progress.total} tasks</span>
+        <span>
+          {progress.completed}/{progress.total - (progress.blocked || 0)} tasks
+          {(progress.blocked || 0) > 0 && (
+            <span className="text-gray-600 ml-1">({progress.blocked} bloqueada{(progress.blocked || 0) > 1 ? 's' : ''})</span>
+          )}
+        </span>
         <span className={cn(
           progress.status === 'completed' && 'text-green-400',
           progress.status === 'in_progress' && 'text-blue-400'

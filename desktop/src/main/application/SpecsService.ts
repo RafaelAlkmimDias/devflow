@@ -11,10 +11,13 @@ import {
   STATUS_ORDER,
 } from '../domain/specs/SpecConstants'
 
+type TaskUpdateStatus = 'completed' | 'pending' | 'blocked'
+
 interface TaskUpdateParams {
   filePath: string
   taskText: string
-  completed: boolean
+  completed?: boolean
+  status?: TaskUpdateStatus
 }
 
 /**
@@ -54,7 +57,9 @@ export class SpecsService {
    */
   async updateTaskStatus(params: TaskUpdateParams): Promise<boolean> {
     try {
-      const { filePath, taskText, completed } = params
+      const { filePath, taskText } = params
+      // Support both old boolean API and new status API
+      const status: TaskUpdateStatus = params.status ?? (params.completed ? 'completed' : 'pending')
 
       if (!existsSync(filePath)) {
         console.error(`File not found: ${filePath}`)
@@ -66,14 +71,11 @@ export class SpecsService {
       // Escape special regex characters in task text
       const escapedTaskText = taskText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-      const uncheckedPattern = new RegExp(`([-*]\\s*)\\[[ ]\\](\\s*${escapedTaskText})`, 'g')
-      const checkedPattern = new RegExp(`([-*]\\s*)\\[[xX]\\](\\s*${escapedTaskText})`, 'g')
+      // Match any checkbox state: [ ], [x], [X], [-]
+      const anyCheckboxPattern = new RegExp(`([-*]\\s*)\\[[ xX\\-]\\](\\s*${escapedTaskText})`, 'g')
 
-      if (completed) {
-        content = content.replace(uncheckedPattern, '$1[x]$2')
-      } else {
-        content = content.replace(checkedPattern, '$1[ ]$2')
-      }
+      const marker = status === 'completed' ? '[x]' : status === 'blocked' ? '[-]' : '[ ]'
+      content = content.replace(anyCheckboxPattern, `$1${marker}$2`)
 
       await fs.writeFile(filePath, content, 'utf-8')
       return true
@@ -163,14 +165,18 @@ export class SpecsService {
   /**
    * Extract task checkboxes from markdown content
    */
-  private extractTasks(content: string): { text: string; completed: boolean }[] {
-    const taskRegex = /[-*]\s*\[([ xX])\]\s*(.+)/g
-    const tasks: { text: string; completed: boolean }[] = []
+  private extractTasks(content: string): { text: string; completed: boolean; status: 'pending' | 'completed' | 'blocked' }[] {
+    const taskRegex = /[-*]\s*\[([ xX\-])\]\s*(.+)/g
+    const tasks: { text: string; completed: boolean; status: 'pending' | 'completed' | 'blocked' }[] = []
     let match
 
     while ((match = taskRegex.exec(content)) !== null) {
+      const marker = match[1]
+      const isCompleted = marker.toLowerCase() === 'x'
+      const isBlocked = marker === '-'
       tasks.push({
-        completed: match[1].toLowerCase() === 'x',
+        completed: isCompleted,
+        status: isBlocked ? 'blocked' : isCompleted ? 'completed' : 'pending',
         text: match[2].trim(),
       })
     }

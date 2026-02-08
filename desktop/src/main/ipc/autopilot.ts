@@ -7,7 +7,51 @@ import { agentService } from '../application/AgentService'
  * Handlers delegate to AgentService for actual execution.
  */
 export function registerAutopilotHandlers(): void {
-  // Execute agent
+  // ─── Single-session API (new) ────────────────────────────────
+
+  // Start a persistent Claude CLI session
+  ipcMain.handle(
+    'autopilot:startSession',
+    async (_, cwd: string): Promise<void> => {
+      return agentService.startSession(cwd)
+    }
+  )
+
+  // Send a prompt to an agent within the active session
+  ipcMain.handle(
+    'autopilot:sendPrompt',
+    async (_, agent: string, prompt: string): Promise<string> => {
+      return agentService.sendPrompt(agent, prompt)
+    }
+  )
+
+  // Send a user response to the active agent
+  ipcMain.handle(
+    'autopilot:sendResponse',
+    async (_, response: string): Promise<void> => {
+      return agentService.sendResponse(response)
+    }
+  )
+
+  // Cancel the current agent (Ctrl+C, session stays alive)
+  ipcMain.handle(
+    'autopilot:cancelCurrentAgent',
+    async (): Promise<void> => {
+      agentService.cancelCurrentAgent()
+    }
+  )
+
+  // End the persistent session
+  ipcMain.handle(
+    'autopilot:endSession',
+    async (): Promise<void> => {
+      agentService.endSession()
+    }
+  )
+
+  // ─── Legacy API (kept for backward compatibility) ────────────
+
+  // Execute agent (legacy: one PTY per agent)
   ipcMain.handle(
     'autopilot:execute',
     async (_, agent: string, prompt: string, cwd: string): Promise<string> => {
@@ -15,7 +59,7 @@ export function registerAutopilotHandlers(): void {
     }
   )
 
-  // Handle user response to agent question
+  // Handle user response to agent question (legacy)
   ipcMain.handle(
     'autopilot:respond',
     async (_, agent: string, response: string): Promise<void> => {
@@ -23,7 +67,7 @@ export function registerAutopilotHandlers(): void {
     }
   )
 
-  // Cancel/kill agent execution
+  // Cancel/kill agent execution (legacy)
   ipcMain.handle(
     'autopilot:cancel',
     async (_, agent: string): Promise<void> => {

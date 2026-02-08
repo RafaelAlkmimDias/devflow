@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, ChevronDown, Rocket } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronDown, Rocket, Check, Ban, Undo2, ShieldBan } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAutopilotStore } from '@/lib/stores/autopilotStore';
+import { useSpecsStore } from '@/lib/stores/specsStore';
 import type { Task, Spec } from '@/lib/types';
 import type { SpecProgress } from '@/lib/stores/specsStore';
 import { ProgressBar } from './ProgressBar';
@@ -23,6 +24,7 @@ export function ExpandableTaskList({
 }: ExpandableTaskListProps) {
   const [expanded, setExpanded] = useState(false);
   const { openConfigModal, status: autopilotStatus, specId: autopilotSpecId } = useAutopilotStore();
+  const { updateTaskStatusWithPersist } = useSpecsStore();
   const isAutopilotRunning = autopilotStatus === 'running' && autopilotSpecId === spec?.id;
 
   if (progress.total === 0) {
@@ -36,6 +38,21 @@ export function ExpandableTaskList({
       const taskSpecId = `${spec.id}:task:${task.id}`;
       openConfigModal(taskSpecId, task.title, taskContent);
     }
+  };
+
+  const handleManualDone = (task: Task) => async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await updateTaskStatusWithPersist(task.id, 'completed');
+  };
+
+  const handleBlock = (task: Task) => async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await updateTaskStatusWithPersist(task.id, 'blocked');
+  };
+
+  const handleRestore = (task: Task) => async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await updateTaskStatusWithPersist(task.id, 'pending');
   };
 
   return (
@@ -61,39 +78,83 @@ export function ExpandableTaskList({
       {expanded && tasks.length > 0 && (
         <div className="mt-2 space-y-1 border-t border-white/5 pt-2">
           {[...tasks].sort((a, b) => {
-            const aDone = a.status === 'completed' ? 1 : 0;
-            const bDone = b.status === 'completed' ? 1 : 0;
-            return aDone - bDone;
+            const order = { pending: 0, in_progress: 0, blocked: 2, completed: 1 };
+            return (order[a.status] ?? 0) - (order[b.status] ?? 0);
           }).map((task) => {
             const isTaskDone = task.status === 'completed';
+            const isTaskBlocked = task.status === 'blocked';
+            const isPending = !isTaskDone && !isTaskBlocked;
             return (
               <div
                 key={task.id}
                 className={cn(
-                  'flex items-center gap-2 px-2 py-1.5 rounded-md text-xs',
-                  isTaskDone ? 'bg-green-500/5 text-gray-500' : 'bg-white/[0.03] text-gray-300'
+                  'flex items-center gap-2 px-2 py-1.5 rounded-md text-xs group',
+                  isTaskDone && 'bg-green-500/5 text-gray-500',
+                  isTaskBlocked && 'bg-red-500/5 text-gray-600',
+                  isPending && 'bg-white/[0.03] text-gray-300'
                 )}
               >
                 {isTaskDone ? (
                   <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-green-500" />
+                ) : isTaskBlocked ? (
+                  <Ban className="w-3.5 h-3.5 flex-shrink-0 text-red-500/60" />
                 ) : (
                   <Circle className="w-3.5 h-3.5 flex-shrink-0 text-gray-500" />
                 )}
-                <span className={cn('flex-1', isTaskDone && 'line-through text-gray-600')}>
+                <span className={cn(
+                  'flex-1',
+                  isTaskDone && 'line-through text-gray-600',
+                  isTaskBlocked && 'line-through text-gray-700'
+                )}>
                   {task.title}
                 </span>
-                {!isTaskDone && spec && (
+
+                {/* Action buttons for pending tasks */}
+                {isPending && spec && (
+                  <div className="flex-shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Mark as done manually */}
+                    <button
+                      onClick={handleManualDone(task)}
+                      title="Marcar como feito manualmente"
+                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-all text-gray-500 hover:bg-green-500/20 hover:text-green-400"
+                    >
+                      <Check className="w-2.5 h-2.5" />
+                    </button>
+
+                    {/* Block task */}
+                    <button
+                      onClick={handleBlock(task)}
+                      title="Marcar como bloqueada"
+                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-all text-gray-500 hover:bg-red-500/20 hover:text-red-400"
+                    >
+                      <ShieldBan className="w-2.5 h-2.5" />
+                    </button>
+
+                    {/* Autopilot */}
+                    <button
+                      onClick={handleTaskAutopilot(task)}
+                      disabled={!!isAutopilotRunning}
+                      title="Executar com Autopilot"
+                      className={cn(
+                        'flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-all',
+                        isAutopilotRunning
+                          ? 'text-purple-400/50 cursor-wait'
+                          : 'text-gray-500 hover:bg-purple-500/20 hover:text-purple-400'
+                      )}
+                    >
+                      <Rocket className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Restore button for completed/blocked tasks */}
+                {(isTaskDone || isTaskBlocked) && (
                   <button
-                    onClick={handleTaskAutopilot(task)}
-                    disabled={!!isAutopilotRunning}
-                    className={cn(
-                      'flex-shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-all',
-                      isAutopilotRunning
-                        ? 'text-purple-400/50 cursor-wait'
-                        : 'text-gray-500 hover:bg-purple-500/20 hover:text-purple-400'
-                    )}
+                    onClick={handleRestore(task)}
+                    title="Restaurar tarefa"
+                    className="flex-shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-all opacity-0 group-hover:opacity-100 text-gray-600 hover:bg-white/10 hover:text-gray-400"
                   >
-                    <Rocket className="w-2.5 h-2.5" />
+                    <Undo2 className="w-2.5 h-2.5" />
                   </button>
                 )}
               </div>

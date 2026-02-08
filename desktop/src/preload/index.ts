@@ -39,13 +39,20 @@ export interface ElectronAPI {
 
   // Specs
   parseSpecs: (specsPath: string) => Promise<Spec[]>
-  updateTaskStatus: (filePath: string, taskText: string, completed: boolean) => Promise<boolean>
+  updateTaskStatus: (filePath: string, taskText: string, completed: boolean, status?: string) => Promise<boolean>
 
   // Search
   searchCode: (rootPath: string, query: string, options?: SearchOptions) => Promise<SearchResult[]>
   searchFiles: (rootPath: string, query: string) => Promise<string[]>
 
-  // Autopilot
+  // Autopilot (single-session API)
+  startAutopilotSession: (cwd: string) => Promise<void>
+  sendAgentPrompt: (agent: string, prompt: string) => Promise<string>
+  sendAgentResponse: (response: string) => Promise<void>
+  cancelCurrentAgent: () => Promise<void>
+  endAutopilotSession: () => Promise<void>
+
+  // Autopilot (legacy API)
   executeAgent: (agent: string, prompt: string, cwd: string) => Promise<string>
   respondToAgent: (agent: string, response: string) => Promise<void>
   cancelAgent: (agent: string) => Promise<void>
@@ -198,13 +205,20 @@ const api: ElectronAPI = {
 
   // Specs
   parseSpecs: (specsPath) => ipcRenderer.invoke('specs:parse', specsPath),
-  updateTaskStatus: (filePath, taskText, completed) => ipcRenderer.invoke('specs:updateTaskStatus', { filePath, taskText, completed }),
+  updateTaskStatus: (filePath, taskText, completed, status) => ipcRenderer.invoke('specs:updateTaskStatus', { filePath, taskText, completed, status }),
 
   // Search
   searchCode: (rootPath, query, options) => ipcRenderer.invoke('search:code', rootPath, query, options),
   searchFiles: (rootPath, query) => ipcRenderer.invoke('search:files', rootPath, query),
 
-  // Autopilot
+  // Autopilot (single-session API)
+  startAutopilotSession: (cwd) => ipcRenderer.invoke('autopilot:startSession', cwd),
+  sendAgentPrompt: (agent, prompt) => ipcRenderer.invoke('autopilot:sendPrompt', agent, prompt),
+  sendAgentResponse: (response) => ipcRenderer.invoke('autopilot:sendResponse', response),
+  cancelCurrentAgent: () => ipcRenderer.invoke('autopilot:cancelCurrentAgent'),
+  endAutopilotSession: () => ipcRenderer.invoke('autopilot:endSession'),
+
+  // Autopilot (legacy API)
   executeAgent: (agent, prompt, cwd) => ipcRenderer.invoke('autopilot:execute', agent, prompt, cwd),
   respondToAgent: (agent, response) => ipcRenderer.invoke('autopilot:respond', agent, response),
   cancelAgent: (agent) => ipcRenderer.invoke('autopilot:cancel', agent),

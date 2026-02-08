@@ -20,10 +20,11 @@ export function TasksView({ tasks, onCreateNew }: TasksViewProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
 
-  const { pendingTasks, completedTasks } = useMemo(() => {
-    const pending = tasks.filter(t => t.status !== 'completed');
+  const { pendingTasks, completedTasks, blockedTasks } = useMemo(() => {
+    const pending = tasks.filter(t => t.status !== 'completed' && t.status !== 'blocked');
     const completed = tasks.filter(t => t.status === 'completed');
-    return { pendingTasks: pending, completedTasks: completed };
+    const blocked = tasks.filter(t => t.status === 'blocked');
+    return { pendingTasks: pending, completedTasks: completed, blockedTasks: blocked };
   }, [tasks]);
 
   const handleToggleRequest = (task: Task, currentStatus: Task['status']) => {
@@ -61,12 +62,15 @@ export function TasksView({ tasks, onCreateNew }: TasksViewProps) {
     );
   }
 
-  const filteredTasks = statusFilter === 'pending' ? pendingTasks : completedTasks;
+  const filteredTasks = statusFilter === 'pending'
+    ? pendingTasks
+    : statusFilter === 'completed'
+      ? completedTasks
+      : blockedTasks;
 
   const groupedPending = {
     in_progress: pendingTasks.filter(t => t.status === 'in_progress'),
     pending: pendingTasks.filter(t => t.status === 'pending'),
-    blocked: pendingTasks.filter(t => t.status === 'blocked'),
   };
 
   return (
@@ -76,11 +80,14 @@ export function TasksView({ tasks, onCreateNew }: TasksViewProps) {
         onChange={setStatusFilter}
         pendingCount={pendingTasks.length}
         completedCount={completedTasks.length}
+        blockedCount={blockedTasks.length}
       />
 
       {filteredTasks.length === 0 ? (
         <div className="text-center py-8 text-gray-500 text-sm">
-          {statusFilter === 'pending' ? 'Nenhuma task pendente' : 'Nenhuma task concluída'}
+          {statusFilter === 'pending' && 'Nenhuma task pendente'}
+          {statusFilter === 'completed' && 'Nenhuma task concluída'}
+          {statusFilter === 'blocked' && 'Nenhuma task bloqueada'}
         </div>
       ) : (
         <div className="space-y-3 sm:space-y-4">
@@ -104,21 +111,20 @@ export function TasksView({ tasks, onCreateNew }: TasksViewProps) {
                   onViewFile={handleViewFile}
                 />
               )}
-              {groupedPending.blocked.length > 0 && (
-                <TaskGroup
-                  title="Blocked"
-                  tasks={groupedPending.blocked}
-                  color="text-red-400"
-                  onToggle={handleToggleRequest}
-                  onViewFile={handleViewFile}
-                />
-              )}
             </>
-          ) : (
+          ) : statusFilter === 'completed' ? (
             <TaskGroup
               title="Completed"
               tasks={completedTasks}
               color="text-green-400"
+              onToggle={handleToggleRequest}
+              onViewFile={handleViewFile}
+            />
+          ) : (
+            <TaskGroup
+              title="Bloqueados"
+              tasks={blockedTasks}
+              color="text-red-400"
               onToggle={handleToggleRequest}
               onViewFile={handleViewFile}
             />

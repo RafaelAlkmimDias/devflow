@@ -8,7 +8,7 @@ export const specsApi = {
     return window.electronAPI.parseSpecs(projectPath)
   },
 
-  updateTaskStatus: (filePath: string, taskText: string, completed: boolean): Promise<boolean> => {
-    return window.electronAPI.updateTaskStatus(filePath, taskText, completed)
+  updateTaskStatus: (filePath: string, taskText: string, completed: boolean, status?: string): Promise<boolean> => {
+    return window.electronAPI.updateTaskStatus(filePath, taskText, completed, status)
   },
 }

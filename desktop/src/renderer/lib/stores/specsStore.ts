@@ -6,6 +6,7 @@ import { specsApi } from '@/infrastructure/api';
 export interface SpecProgress {
   total: number;
   completed: number;
+  blocked: number;
   inProgress: number;
   percentage: number;
   status: 'not_started' | 'in_progress' | 'completed';
@@ -129,13 +130,18 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
 
         // Extract tasks from spec
         spec.tasks.forEach((task, index) => {
+          const taskStatus = task.status === 'blocked'
+            ? 'blocked' as const
+            : task.completed
+              ? 'completed' as const
+              : 'pending' as const;
           tasks.push({
             id: `${spec.id}-task-${index}`,
             specId: spec.id,
             filePath: `${projectPath}/${filePath}`,
             title: task.text,
             description: '',
-            status: task.completed ? 'completed' as const : 'pending' as const,
+            status: taskStatus,
             priority: 'medium' as const,
             dependencies: [],
             createdAt: new Date(),
@@ -198,10 +204,17 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
 
     try {
       // Update the file
+      const statusMap: Record<string, string> = {
+        completed: 'completed',
+        blocked: 'blocked',
+        pending: 'pending',
+        in_progress: 'pending',
+      };
       const success = await specsApi.updateTaskStatus(
         task.filePath,
         task.title,
-        status === 'completed'
+        status === 'completed',
+        statusMap[status] || 'pending'
       );
 
       if (success) {
@@ -254,6 +267,7 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
       return {
         total: 0,
         completed: 0,
+        blocked: 0,
         inProgress: 0,
         percentage: 0,
         status: 'not_started' as const,
@@ -261,17 +275,19 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
     }
 
     const completed = specTasks.filter((t) => t.status === 'completed').length;
+    const blocked = specTasks.filter((t) => t.status === 'blocked').length;
     const inProgress = specTasks.filter((t) => t.status === 'in_progress').length;
+    const activeTasks = specTasks.length - blocked;
     const total = specTasks.length;
-    const percentage = Math.round((completed / total) * 100);
+    const percentage = activeTasks > 0 ? Math.round((completed / activeTasks) * 100) : 100;
 
     let status: 'not_started' | 'in_progress' | 'completed' = 'not_started';
-    if (completed === total) {
+    if (activeTasks > 0 && completed === activeTasks) {
       status = 'completed';
     } else if (completed > 0 || inProgress > 0) {
       status = 'in_progress';
     }
 
-    return { total, completed, inProgress, percentage, status };
+    return { total, completed, blocked, inProgress, percentage, status };
   },
 }));

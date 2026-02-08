@@ -1,7 +1,20 @@
 import { AgentId } from '../types'
 
 /**
- * Agent-specific prompt templates for initial execution
+ * Map agent types to Claude Code skills (slash commands).
+ * Mirrored from main-process constants for renderer use.
+ */
+const AGENT_SKILLS: Record<AgentId, string> = {
+  strategist: '/agents:strategist',
+  architect: '/agents:architect',
+  designer: '/agents:designer',
+  builder: '/agents:builder',
+  guardian: '/agents:guardian',
+  chronicler: '/agents:chronicler',
+}
+
+/**
+ * Agent-specific prompt templates
  */
 const AGENT_PROMPTS: Record<AgentId, { role: string; focus: string[] }> = {
   strategist: {
@@ -58,7 +71,72 @@ const AGENT_PROMPTS: Record<AgentId, { role: string; focus: string[] }> = {
 }
 
 /**
+ * Build the prompt for the first agent (includes spec content).
+ * Uses the skill slash command prefix.
+ */
+function buildFirstAgentPrompt(
+  agent: AgentId,
+  specContent: string,
+  isLastAgent: boolean
+): string {
+  const skill = AGENT_SKILLS[agent] || `/agents:${agent}`
+  const statusInstruction = isLastAgent
+    ? 'Ao finalizar, emita [STATUS: DONE]'
+    : 'Ao finalizar, emita [STATUS: READY_TO_PROCEED]'
+
+  return `${skill} Analise esta spec:
+
+${specContent}
+
+${statusInstruction}
+Se precisar de input do usuário, emita [STATUS: AWAITING_INPUT]`
+}
+
+/**
+ * Build the prompt for subsequent agents (no spec/previousOutputs — already in session context).
+ * Uses the skill slash command prefix.
+ */
+function buildSubsequentAgentPrompt(
+  agent: AgentId,
+  isLastAgent: boolean
+): string {
+  const skill = AGENT_SKILLS[agent] || `/agents:${agent}`
+  const config = AGENT_PROMPTS[agent]
+  const focusPoints = config.focus.map(f => `- ${f}`).join('\n')
+
+  const statusInstruction = isLastAgent
+    ? 'Ao finalizar, emita [STATUS: DONE]'
+    : 'Ao finalizar, emita [STATUS: READY_TO_PROCEED]'
+
+  return `${skill} Continue baseado na análise anterior. Foque em:
+${focusPoints}
+
+${statusInstruction}
+Se precisar de input do usuário, emita [STATUS: AWAITING_INPUT]`
+}
+
+/**
+ * Build the prompt for an agent in the single-session flow.
+ * First agent gets the spec content; subsequent agents only get focus points
+ * (spec and previous outputs are already in the CLI session context).
+ */
+export function buildSessionAgentPrompt(
+  agent: AgentId,
+  specContent: string,
+  isFirstAgent: boolean,
+  isLastAgent: boolean
+): string {
+  if (isFirstAgent) {
+    return buildFirstAgentPrompt(agent, specContent, isLastAgent)
+  }
+  return buildSubsequentAgentPrompt(agent, isLastAgent)
+}
+
+// ─── Legacy functions (kept for backward compatibility / resume) ──────
+
+/**
  * Format previous outputs as context
+ * @deprecated Only used for resume flow
  */
 function formatPreviousOutputs(previousOutputs: string[]): string {
   if (previousOutputs.length === 0) return ''
@@ -66,7 +144,8 @@ function formatPreviousOutputs(previousOutputs: string[]): string {
 }
 
 /**
- * Build the initial prompt for an agent execution
+ * Build the initial prompt for an agent execution (legacy multi-PTY flow)
+ * @deprecated Use buildSessionAgentPrompt instead
  */
 export function buildAgentPrompt(
   agent: AgentId,
@@ -87,7 +166,8 @@ ${focusPoints}`
 }
 
 /**
- * Build a continuation prompt when user responds to a question
+ * Build a continuation prompt when user responds to a question (legacy)
+ * @deprecated In single-session flow, use agentApi.sendResponse() directly
  */
 export function buildContinuationPrompt(
   agent: AgentId,
@@ -116,6 +196,7 @@ Please continue your analysis incorporating the user's feedback. Provide updated
 
 /**
  * Format user response for display in combined output
+ * @deprecated Not needed in single-session flow
  */
 export function formatUserResponseSeparator(userResponse: string): string {
   return `\n\n---\n[Sua resposta: ${userResponse}]\n---\n\n`

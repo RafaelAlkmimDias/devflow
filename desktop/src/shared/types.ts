@@ -58,9 +58,12 @@ export interface Spec {
   metadata: Record<string, unknown>
 }
 
+export type SpecTaskStatus = 'pending' | 'completed' | 'blocked'
+
 export interface SpecTask {
   text: string
   completed: boolean
+  status: SpecTaskStatus
 }
 
 export interface SearchOptions {
@@ -103,7 +106,7 @@ export interface AgentExecution {
 // Autopilot streaming types
 export interface AutopilotStreamData {
   agent: string
-  type: 'start' | 'stdout' | 'stderr' | 'question' | 'response-sent'
+  type: 'start' | 'stdout' | 'stderr' | 'question' | 'response-sent' | 'exit'
   data?: string
 }
 

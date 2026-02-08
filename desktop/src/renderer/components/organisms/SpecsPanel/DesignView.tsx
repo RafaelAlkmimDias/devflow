@@ -24,21 +24,28 @@ export function DesignView({
   const containerRef = useRef<HTMLDivElement>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
 
-  const { pendingDecs, completedDecs } = useMemo(() => {
+  const { pendingDecs, completedDecs, blockedDecs } = useMemo(() => {
     const pending: DesignDecision[] = [];
     const completed: DesignDecision[] = [];
+    const blocked: DesignDecision[] = [];
     for (const dec of decisions) {
       const progress = getSpecProgress(dec.specId);
       if (progress.status === 'completed') {
         completed.push(dec);
+      } else if (progress.total > 0 && progress.blocked === progress.total) {
+        blocked.push(dec);
       } else {
         pending.push(dec);
       }
     }
-    return { pendingDecs: pending, completedDecs: completed };
+    return { pendingDecs: pending, completedDecs: completed, blockedDecs: blocked };
   }, [decisions, getSpecProgress]);
 
-  const filteredDecisions = statusFilter === 'pending' ? pendingDecs : completedDecs;
+  const filteredDecisions = statusFilter === 'pending'
+    ? pendingDecs
+    : statusFilter === 'completed'
+      ? completedDecs
+      : blockedDecs;
 
   const handleSelect = useCallback((dec: DesignDecision) => {
     const spec = specs.find(s => s.id === dec.specId);
@@ -73,11 +80,14 @@ export function DesignView({
         onChange={setStatusFilter}
         pendingCount={pendingDecs.length}
         completedCount={completedDecs.length}
+        blockedCount={blockedDecs.length}
       />
 
       {filteredDecisions.length === 0 ? (
         <div className="text-center py-8 text-gray-500 text-sm">
-          {statusFilter === 'pending' ? 'Nenhuma decisão pendente' : 'Nenhuma decisão concluída'}
+          {statusFilter === 'pending' && 'Nenhuma decisão pendente'}
+          {statusFilter === 'completed' && 'Nenhuma decisão concluída'}
+          {statusFilter === 'blocked' && 'Nenhuma decisão bloqueada'}
         </div>
       ) : (
         <div
