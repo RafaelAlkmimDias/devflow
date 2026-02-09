@@ -22,6 +22,7 @@ import {
   FolderOpen,
   Clock,
   ArrowRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { GitPanel } from '@/components/organisms/GitChanges';
@@ -134,13 +135,15 @@ function ProjectSelector({
 }
 
 // Main IDE Component
-function IDE({ projectPath }: { projectPath: string }) {
+function IDE({ projectPath, onSwitchProject }: { projectPath: string; onSwitchProject: () => void }) {
   const { loadTree } = useFileStore();
   const { setProject } = useProjectStore();
   const { openSettings } = useSettingsStore();
 
   // Initialize keyboard shortcuts
   useKeyboardShortcuts();
+
+  const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
 
   const {
     sidebarVisible,
@@ -198,10 +201,14 @@ function IDE({ projectPath }: { projectPath: string }) {
       <div className="flex-1 flex overflow-hidden">
         {/* Activity Bar */}
         <div className="w-12 bg-[#08080c] border-r border-white/10 flex flex-col items-center py-2">
-          {/* Logo */}
-          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg flex items-center justify-center mb-4">
+          {/* Logo - Switch Project */}
+          <button
+            onClick={() => setShowSwitchConfirm(true)}
+            className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-700 hover:from-purple-400 hover:to-purple-600 rounded-lg flex items-center justify-center mb-4 transition-all hover:scale-110"
+            title="Switch project"
+          >
             <Zap className="w-4 h-4 text-white" />
-          </div>
+          </button>
 
           {/* Nav Items */}
           <div className="flex-1 flex flex-col gap-1">
@@ -314,6 +321,44 @@ function IDE({ projectPath }: { projectPath: string }) {
       <ErrorBoundary fallback={null}>
         <AutopilotConfigModal projectPath={projectPath} />
       </ErrorBoundary>
+
+      {/* Switch Project Confirmation Modal */}
+      {showSwitchConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowSwitchConfirm(false)}
+          />
+          <div className="relative bg-[#12121a] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Switch Project?</h3>
+            </div>
+            <p className="text-sm text-gray-400 mb-6">
+              You will leave the current project. Any unsaved changes may be lost.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowSwitchConfirm(false)}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowSwitchConfirm(false);
+                  onSwitchProject();
+                }}
+                className="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg transition-colors"
+              >
+                Switch Project
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -453,7 +498,7 @@ function App() {
         }}
       />
       {projectPath ? (
-        <IDE projectPath={projectPath} />
+        <IDE projectPath={projectPath} onSwitchProject={() => setProjectPath(null)} />
       ) : (
         <ProjectSelector
           onSelectProject={handleSelectProject}
